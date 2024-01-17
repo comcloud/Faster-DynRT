@@ -22,7 +22,7 @@ class DynRT(nn.Module):
     def forward(self, img_feat, lang_feat, lang_feat_mask):
         img_feat_mask = torch.zeros([img_feat.shape[0],1,1,img_feat.shape[1]],dtype=torch.bool,device=img_feat.device)
         # (bs, 1, 1, grid_num)
-        lang_feat, img_feat = self.backbone(
+        (lang_feat, origin_img_feat), (origin_lang_feat, img_feat) = self.backbone(
             lang_feat,
             img_feat,
             lang_feat_mask,

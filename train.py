@@ -307,7 +307,7 @@ class onerun:
         if "device" not in self.info:
             self.info["device"]="cuda:0"
         self.device_ids = self.info["device"]
-        self.device=torch.device("cuda:"+str(self.device_ids[0]))
+        self.device=torch.device("cuda:"+str(self.device_ids[0]) if torch.cuda.is_available() else 'cpu')
         self.log.info("Created Model : %s" % json.dumps(self.opt["modelopt"]))
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.enabled   = True
@@ -419,6 +419,7 @@ class onerun:
             self.log.info("Prepared %s : %s" % (key,json.dumps(loaderopt[key])))
         
         self.batch_size=opt["batch_size"] if "batch_size" in opt else 16
+        inputs['batch_size'] = self.batch_size
         pin_memory=opt["pin_memory"] if "pin_memory" in opt else True
         num_workers=opt["num_workers"] if "num_workers" in opt else 8
         shuffle=opt["shuffle"] if "shuffle" in opt else True

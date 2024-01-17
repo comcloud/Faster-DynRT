@@ -231,3 +231,86 @@ Thanks for the RoBERTa model from https://huggingface.co/roberta-base/
 
 Thanks for the TRAR from https://github.com/rentainhe/TRAR-VQA
 
+
+## other
+### 数据预处理
+~~~python
+'''
+预处理
+1. 图片transform为npy文件
+2. 文本使用pickle序列化
+ - id即为所有ID
+ -
+修改代码中的文件路径
+'''
+import json
+import pickle
+import os
+from PIL import Image
+from torchvision import transforms
+
+
+def image_process(is_single=True):
+    img_dir = '/Users/rayss/Desktop/sentiment/MVSA-single/image/' \
+        if is_single else '/Users/rayss/Desktop/sentiment/MVSA-multiple/image/'
+    save_path = '/Users/rayss/pythonProjects/DynRT/input/sentiment/single_image_tensor/' \
+        if is_single else '/Users/rayss/pythonProjects/DynRT/input/sentiment/multiple_image_tensor/'
+    transform = transforms.Compose([
+        transforms.Resize([224, 224]),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+
+    for root, dirs, files in os.walk(img_dir):
+        for filename in files:
+            img_path = os.path.join(
+                img_dir, filename
+            )
+            try:
+                img = Image.open(img_path)
+                img = img.convert('RGB')  # convert grey picture
+                trainsform_img = transform(img)
+                # image_tensor[mode].append(trainsform_img.unsqueeze(0))
+                np.save(save_path + str(filename.split('.')[0]) + '.npy', trainsform_img.numpy())
+            except Exception:
+                pass
+
+
+def do_text_process(source, mode):
+    # 读取json文件数据：id, text, label
+    with open("/Users/rayss/Desktop/dataset/MVSA-" + source + "/dataset/" + mode + ".json") as train:
+        j = json.load(train)
+        id_list = []
+        text_list = []
+        label_list = []
+        for item in j:
+            id_list.append(item['id'])
+            text_list.append(item['text'])
+            label_list.append(item['emotion_label'])
+
+        serialized_data = pickle.dumps(id_list)
+        target_root_path = '/Users/rayss/pythonProjects/DynRT/input/sentiment/' + source + '_prepared/'
+        with open(target_root_path + mode + '_id', 'wb') as file:
+            file.write(serialized_data)
+        serialized_data = pickle.dumps(text_list)
+        with open(target_root_path + mode + '_text', 'wb') as file:
+            file.write(serialized_data)
+        serialized_data = pickle.dumps(label_list)
+        with open(target_root_path + mode + '_labels', 'wb') as file:
+            file.write(serialized_data)
+
+
+def text_process():
+    do_text_process(source='single', mode='test')
+    do_text_process(source='single', mode='train')
+    do_text_process(source='single', mode='dev')
+    do_text_process(source='multiple', mode='test')
+    do_text_process(source='multiple', mode='train')
+    do_text_process(source='multiple', mode='dev')
+
+
+if __name__ == "__main__":
+    # text_process()
+    image_process(is_single=False)
+
+~~~

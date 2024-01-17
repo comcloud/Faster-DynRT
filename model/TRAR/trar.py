@@ -187,6 +187,25 @@ class SARoutingBlock(nn.Module):
 
     def routing_att(self, value, key, query, masks):
         d_k = query.size(-1) # masks [[bs, 1, 1, 49], [bs, 1, 49, 49], [bs, 1, 49, 49], [bs, 1, 49, 49]]
+        # window_size = 2
+        # batch_size = query.size(0)
+        # seq_len = query.size(2)
+        # block_num = key.size(2)
+        # seq_len_to_block_num = nn.Linear(seq_len, block_num)
+        # # 定义局部注意力分布
+        # attention_mask = torch.zeros(seq_len, seq_len)
+        # attention_mask = attention_mask.to(query.device)
+        # for i in range(seq_len):
+        #     start = max(0, i - window_size)
+        #     end = min(seq_len, i + window_size + 1)
+        #     attention_mask[i, start:end] = 1
+        #
+        # # 计算注意力权重
+        # attention_weights = torch.softmax(attention_mask, dim=-1)
+        #
+        # output = torch.matmul(seq_len_to_block_num(attention_weights.repeat(batch_size, 2, 1, 1)), key)
+        # scores = torch.matmul(query, output.transpose(-1, -2)) / math.sqrt(d_k)
+        # scores = seq_len_to_block_num(scores)
         scores = torch.matmul(
             query, key.transpose(-2, -1)
         ) / math.sqrt(d_k) # (bs, 4, 49, 49) (2, 4, 360, 49)
@@ -357,7 +376,7 @@ def getImgMasks(scale=16, order=2):
             mask = np.reshape(mask, [_scale * _scale])
             masks.append(mask)
     masks = np.array(masks)
-    masks = np.asarray(masks, dtype=np.bool) # 0, 1 -> False True (True mask)
+    masks = np.asarray(masks, dtype=np.bool_) # 0, 1 -> False True (True mask)
     return masks
 
 def getMasks_img_multimodal(x_mask, __C):
@@ -374,6 +393,40 @@ def getMasks_img_multimodal(x_mask, __C):
             mask_list.append(mask)
     return mask_list 
 
+def getTextMasks(max_len, order):
+    """
+    :param max_len: Maximum length of the text
+    :param order: Local Window Size, e.g., order=2 equals to windows size (5, 5)
+    :return: masks = (max_len, max_len)
+    """
+    masks = []
+    assert order < max_len, 'order size must be smaller than max_len'
+
+    for i in range(max_len):
+        for j in range(max_len):
+            mask = torch.ones([max_len, max_len], dtype=torch.bool)
+            for x in range(i - order, i + order + 1):
+                for y in range(j - order, j + order + 1):
+                    if (0 <= x < max_len) and (0 <= y < max_len):
+                        mask[x][y] = False
+            masks.append(mask)
+    masks = torch.stack(masks)
+    return masks
+
+def getMasks_text_multimodal(x_mask, __C, mask_txt_linear):
+    mask_list = []
+    ORDERS = __C["ORDERS"]
+    for order in ORDERS:
+        if order == 0:
+            mask_list.append(x_mask)
+        else:
+            mask_text = torch.from_numpy(getImgMasks(__C["len"]//10, order)).float().to(x_mask.device).transpose(1, 0)  # (max_len, max_len)
+            mask = mask_txt_linear(mask_text).transpose(1, 0)
+            mask = torch.logical_or(x_mask, mask)  # (batch_size, 1, grid_num, max_len)
+            mask_list.append(mask)
+    return mask_list
+
+
 class DynRT_ED(nn.Module):
     def __init__(self, opt):
         super(DynRT_ED, self).__init__()
@@ -386,15 +439,19 @@ class DynRT_ED(nn.Module):
             opt_copy["orders"] = len(opt["ORDERS"])-i
             opt_list.append(copy.deepcopy(opt_copy))
         self.dec_list = nn.ModuleList([multiTRAR_SA_block(opt_list[-(i+1)]) for i in range(opt["layer"])])
+        self.mask_txt_linear = nn.Linear(opt["len"], opt["IMG_SCALE"] * opt["IMG_SCALE"])
 
-    def forward(self, y, x, y_mask, x_mask):
-        # y text (bs, max_len, dim) x img (bs, gird_num, dim) y_mask (bs, 1, 1, max_len) x_mask (bs, 1, 1, grid_num)
-        x_masks = getMasks_img_multimodal(x_mask, self.opt)
+    def forward(self, x, y, x_mask, y_mask):
+        origin_x, origin_y = x, y
+        # x text (bs, max_len, dim) y img (bs, gird_num, dim) x_mask (bs, 1, 1, max_len) y_mask (bs, 1, 1, grid_num)
+        y_masks = getMasks_img_multimodal(y_mask, self.opt)
+        # x_masks = getMasks_text_multimodal(x_mask, self.opt, self.mask_txt_linear)
         # Input encoder last hidden vector
         # And obtain decoder last hidden vectors
         for i, dec in enumerate(self.dec_list):
-            y = dec(y, x, x_masks[:i+1], y_mask, self.tau, self.training) # (4, 360, 768)
-        return y, x
+            x = dec(x, origin_y, y_masks[:i+1], x_mask, self.tau, self.training) # (4, 360, 768)
+            # y = dec(y, origin_x, x_masks[:i+1], y_mask, self.tau, self.training)
+        return (x, origin_y), (origin_x, y)
 
     def set_tau(self, tau):
         self.tau = tau

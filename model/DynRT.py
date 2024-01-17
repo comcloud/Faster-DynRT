@@ -2,6 +2,7 @@ import torch
 import timm
 import model
 from transformers import RobertaModel
+from model.attention.GuideAttentionLayer import GuideAttentionLayer
 
 def freeze_layers(model):
     for child in model.children():
@@ -10,12 +11,15 @@ def freeze_layers(model):
 
 class DynRT(torch.nn.Module):
   # define model elements
-    def __init__(self,bertl_text,vit, opt):
+    def __init__(self,bertl_text,vit, opt,batch_size):
         super(DynRT, self).__init__()
 
         self.bertl_text = bertl_text
         self.opt = opt
-        self.vit=vit
+        self.vit = vit
+        self.guide_attention_layer = GuideAttentionLayer(batch_size=batch_size, text_seq_len=opt['len'],
+                                                         text_hidden_dim=opt['mlp_size'], image_block_num=opt['IMG_SCALE'] * opt['IMG_SCALE'],
+                                                         image_hidden_dim=opt['mlp_size'], )
         if not self.opt["finetune"]:
             freeze_layers(self.bertl_text)
             freeze_layers(self.vit)
@@ -53,6 +57,7 @@ class DynRT(torch.nn.Module):
             bert_embed_text = bert_text
         # (bs, grid_num, dim)
         img_feat = self.vit_forward(input[self.input2])
+        # bert_embed_text, img_feat = self.guide_attention_layer(bert_embed_text, img_feat)
 
         (out1, lang_emb, img_emb) = self.trar(img_feat, bert_embed_text,input[self.input3].unsqueeze(1).unsqueeze(2))
 
@@ -68,6 +73,10 @@ def build_DynRT(opt,requirements):
     
     bertl_text = RobertaModel.from_pretrained(opt["roberta_path"])
     if "vitmodel" not in opt:
-        opt["vitmodel"]="vit_base_patch32_224"
-    vit = timm.create_model(opt["vitmodel"], pretrained=True)
-    return DynRT(bertl_text,vit,opt)
+        opt["vitmodel"] = "vit_base_patch32_224"
+    # vit = timm.create_model(opt["vitmodel"], pretrained=True)
+    pretrained_cfg = timm.models.create_model(opt["vitmodel"]).default_cfg
+    pretrained_cfg['file'] = r'/Users/rayss/pythonProjects/DynRT/model/vit/B_32-i21k-300ep-lr_0.001-aug_medium1-wd_0.03-do_0.0-sd_0.0--imagenet2012-steps_20k-lr_0.03-res_224.npz'
+    vit = timm.models.create_model(opt["vitmodel"], pretrained=True, pretrained_cfg=pretrained_cfg)
+
+    return DynRT(bertl_text, vit, opt,requirements['batch_size'])

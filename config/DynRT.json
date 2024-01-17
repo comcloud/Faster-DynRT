@@ -15,21 +15,21 @@
         "dataloader": {
             "requires": {
                 "tokenizer_roberta": {
-                    "path": "roberta-base/"
+                    "path": "roberta-base"
                 }
             },
             "loaders": {
                 "text": {
-                    "data_path": "input/prepared_clean/",
+                    "data_path": "/Users/rayss/pythonProjects/DynRT/input/sentiment/single_prepared/",
                     "len": 100,
                     "pad": 1
                 },
                 "img": {
-                    "data_path": "input/prepared_clean/",
-                    "transform_image": "image_tensor/"
+                    "data_path": "/Users/rayss/pythonProjects/DynRT/input/sentiment/single_prepared/",
+                    "transform_image": "/Users/rayss/pythonProjects/DynRT/input/sentiment/single_image_tensor/"
                 },
                 "label": {
-                    "data_path": "input/prepared_clean/",
+                    "data_path": "/Users/rayss/pythonProjects/DynRT/input/sentiment/single_prepared/",
                     "test_label": true
                 }
             },
@@ -71,7 +71,7 @@
             "orders": 4,
             "pooling": "avg",
             "classifier": "both",
-            "roberta_path": "roberta-base/",
+            "roberta_path": "./model/roberta",
             "roberta_layer": 1,
             "vitmodel": "vit_base_patch32_224",
             "finetune": false
