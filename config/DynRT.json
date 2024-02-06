@@ -20,16 +20,16 @@
             },
             "loaders": {
                 "text": {
-                    "data_path": "/Users/rayss/pythonProjects/DynRT/input/sentiment/single_prepared/",
+                    "data_path": "input/prepared_clean/",
                     "len": 100,
                     "pad": 1
                 },
                 "img": {
-                    "data_path": "/Users/rayss/pythonProjects/DynRT/input/sentiment/single_prepared/",
-                    "transform_image": "/Users/rayss/pythonProjects/DynRT/input/sentiment/single_image_tensor/"
+                    "data_path": "input/prepared_clean/",
+                    "transform_image": "image_tensor/"
                 },
                 "label": {
-                    "data_path": "/Users/rayss/pythonProjects/DynRT/input/sentiment/single_prepared/",
+                    "data_path": "input/prepared_clean/",
                     "test_label": true
                 }
             },

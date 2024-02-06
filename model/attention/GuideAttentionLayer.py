@@ -1,10 +1,10 @@
+from enum import Enum
+
 import torch
 from torch import nn
 
-
 from model.attention.ImageSparseAttention import ImageSparseAttention
 from model.attention.TextSparseAttention import TextSparseAttention
-
 
 # from GatedLayer import GatedLayer
 
@@ -53,26 +53,23 @@ class GuideAttentionLayer(nn.Module):
             eps=1e-6,
             device=self.device)
 
-    def forward(self, text_feature, image_feature):
-        # 先对图片进行处理
-        # 1. sparse attention
-        image_out = self.image_sparse_attention(image_feature, text_feature)
-        # norm
-        image_out = self.norm(image_feature, image_out, self.image_norm)
-        # 2. MLP
-        image_out = self.image_out(image_out)
-        # norm
-        image_out = self.norm(image_feature, image_out, self.image_norm)
+    def forward(self, text_feature, image_feature, use_source=1):
+        # 0 : 使用原生的文本或者图片特征
+        # 1 : 使用文本引导图片的结果作为图片和文本中的文本特征
+        # 2 : 使用图片引导文本的结果作为图片和文本中的图片特征
+        # 定义处理函数
+        process_func = {
+            0: lambda: (image_feature, text_feature),
+            1: lambda: (image_feature, self.process_text(text_feature, image_feature)),
+            2: lambda: (self.process_image(text_feature, image_feature), text_feature),
+        }
+        # 根据 use_source 获取并执行对应的处理函数
+        image_feature, text_feature = process_func[use_source]()
 
-        # 再对文本处理
-        # 1. sparse attention
-        text_out = self.text_sparse_attention(text_feature, image_out)
-        # norm
-        text_out = self.norm(text_feature, text_out, self.text_norm)
-        # 2. MLP out
-        text_out = self.text_out(text_out)
-        # norm
-        text_out = self.norm(text_feature, text_out, self.text_norm)
+        # 图片处理
+        image_out = self.process_image(text_feature, image_feature)
+        # 文本处理
+        text_out = self.process_text(text_feature, image_feature)
 
         return text_out, image_out
 
@@ -93,3 +90,28 @@ class GuideAttentionLayer(nn.Module):
             eps=1e-6,
             device=self.device)
         return norm_supple(out + feature)
+
+    def process_text(self, text_feature, image_feature):
+        # sparse attention
+        out = self.text_sparse_attention(text_feature, image_feature)
+        # norm
+        out = self.norm(text_feature, out, self.text_norm)
+        # MLP out
+        out = self.text_out(out)
+        # norm
+        out = self.norm(text_feature, out, self.text_norm)
+
+        return out
+
+    def process_image(self, text_feature, image_feature):
+        # sparse attention
+        out = self.image_sparse_attention(text_feature, image_feature)
+        # norm
+        out = self.norm(image_feature, out, self.image_norm)
+        # MLP out
+        out = self.image_out(out)
+        # norm
+        out = self.norm(image_feature, out, self.image_norm)
+
+        return out
+

@@ -63,7 +63,7 @@ class DynRT(torch.nn.Module):
             bert_embed_text = bert_text
         # (bs, grid_num, dim)
         img_feat = self.vit_forward(input[self.input2])
-        # bert_embed_text, img_feat = self.guide_attention_layer(bert_embed_text, img_feat)
+        bert_embed_text, img_feat = self.guide_attention_layer(bert_embed_text, img_feat)
         # bert_embed_text, img_feat = self.tradition_attention_layer(bert_embed_text, img_feat)
 
         (out1, lang_emb, img_emb) = self.trar(img_feat, bert_embed_text,input[self.input3].unsqueeze(1).unsqueeze(2))

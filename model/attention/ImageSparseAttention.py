@@ -26,7 +26,7 @@ class ImageSparseAttention(nn.Module):
         # 定义图片块数到文本长度
         self.block_to_seq_len = nn.Linear(image_block_num, text_seq_len)
 
-    def forward(self, image_feature, text_feature):
+    def forward(self, text_feature, image_feature):
         '''
         :param image_feature: 图片特征，(batch_size, image_block_num, image_hidden_dim)
         :param text_feature: 文本特征，(batch_size, text_seq_len, text_hidden_dim)
