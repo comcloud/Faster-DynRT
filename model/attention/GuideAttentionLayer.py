@@ -9,16 +9,10 @@ from model.attention.TextSparseAttention import TextSparseAttention
 # from GatedLayer import GatedLayer
 
 '''
-引导注意力层
-输入特征f1，f2进行两次执行注意力运算
-self-attention -> norm(Add) -> f1:Q, f2:K,V（spare max）-> norm(Add) -> MLP 
-self-attention -> norm(Add) -> f2:Q, f1:K,V（spare max）-> norm(Add) -> MLP 
+引导注意力层GuideAttentionLayer
+中间使用策略层去处理不同的情况Strategy
+真正执行者DoGuideAttentionLayer
 
-最后返回二者结果
-
-self.norm_after_bert = nn.LayerNorm(normalized_shape=[batch_size, input_max_length, bert_hidden_size],
-                                            eps=1e-6,
-                                            device=device)
 '''
 
 
@@ -26,6 +20,69 @@ class GuideAttentionLayer(nn.Module):
 
     def __init__(self, batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim):
         super(GuideAttentionLayer, self).__init__()
+        self.strategy = Strategy(batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim)
+
+    def forward(self, text_feature, image_feature, use_source=1):
+        text_out, image_out = self.strategy.do_strategy(text_feature, image_feature, use_source)
+        return text_out, image_out
+
+
+class Strategy:
+
+    def __init__(self, batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim):
+        # 初始化时注册所有处理策略
+        # 0 : 使用原生的文本或者图片特征
+        # 1 : 使用文本引导图片的结果作为图片和文本中的文本特征
+        # 2 : 使用图片引导文本的结果作为图片和文本中的图片特征
+        # 3 : 文本和图片都进行优化
+        self.strategies = {
+            0: self.process_strategy_0,
+            1: self.process_strategy_1,
+            2: self.process_strategy_2,
+            3: self.process_strategy_3,
+        }
+
+        self.do_guide = DoGuideAttentionLayer(batch_size, text_seq_len, text_hidden_dim, image_block_num,
+                                              image_hidden_dim)
+
+    def do_strategy(self, text_feature, image_feature, use_source=1):
+        text_out, image_out = self.strategies.get(use_source, self.strategies[0])(text_feature, image_feature)
+        return text_out, image_out
+
+    def process_strategy_0(self, text_feature, image_feature):
+        # 使用原生的文本或者图片特征
+        # 文本处理
+        text_out = self.do_guide.process_text(text_feature, image_feature)
+        # 图片处理
+        image_out = self.do_guide.process_image(text_feature, image_feature)
+        return text_out, image_out
+
+    def process_strategy_1(self, text_feature, image_feature):
+        # 使用文本引导图片的结果作为图片和文本中的文本特征
+        text_out = self.do_guide.process_text(text_feature, image_feature)
+        # 图片处理
+        image_out = self.do_guide.process_image(text_out, image_feature)
+        return text_out, image_out
+
+    def process_strategy_2(self, text_feature, image_feature):
+        # 使用图片引导文本的结果作为图片和文本中的图片特征
+        image_out = self.do_guide.process_image(text_feature, image_feature)
+        # 使用文本引导图片的结果作为图片和文本中的文本特征
+        text_out = self.do_guide.process_text(text_feature, image_out)
+        return text_out, image_out
+
+    def process_strategy_3(self, text_feature, image_feature):
+        # 文本和图片都进行优化
+        image_out = self.do_guide.process_image(self.do_guide.process_text(text_feature, image_feature), image_feature)
+        # 文本处理
+        text_out = self.do_guide.process_text(text_feature, self.do_guide.process_image(text_feature, image_feature))
+        return text_out, image_out
+
+
+class DoGuideAttentionLayer:
+
+    def __init__(self, batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim):
+        super(DoGuideAttentionLayer, self).__init__()
         self.batch_size = batch_size
 
         # sparse attention
@@ -52,26 +109,6 @@ class GuideAttentionLayer(nn.Module):
             normalized_shape=[batch_size, image_block_num, image_hidden_dim],
             eps=1e-6,
             device=self.device)
-
-    def forward(self, text_feature, image_feature, use_source=1):
-        # 0 : 使用原生的文本或者图片特征
-        # 1 : 使用文本引导图片的结果作为图片和文本中的文本特征
-        # 2 : 使用图片引导文本的结果作为图片和文本中的图片特征
-        # 定义处理函数
-        process_func = {
-            0: lambda: (image_feature, text_feature),
-            1: lambda: (image_feature, self.process_text(text_feature, image_feature)),
-            2: lambda: (self.process_image(text_feature, image_feature), text_feature),
-        }
-        # 根据 use_source 获取并执行对应的处理函数
-        image_feature, text_feature = process_func[use_source]()
-
-        # 图片处理
-        image_out = self.process_image(text_feature, image_feature)
-        # 文本处理
-        text_out = self.process_text(text_feature, image_feature)
-
-        return text_out, image_out
 
     def norm(self, feature, out, norm_manner):
         '''
@@ -114,4 +151,3 @@ class GuideAttentionLayer(nn.Module):
         out = self.norm(image_feature, out, self.image_norm)
 
         return out
-
