@@ -16,6 +16,9 @@ import pandas as pd
 import datetime
 import pickle
 import tensorboard_logger as tb_logger
+
+from image_attention_visual import img_attention_visualization
+from text_attention_visual import text_attention_visualization
 from utils import AverageMeter, LogCollector
 import torch.nn as nn
 import numpy as np
@@ -214,7 +217,41 @@ class onerun:
 
         with torch.no_grad():
             for i, batch in enumerate(self.dataloaders[mode]):
-                
+                if epoch == 3:
+                    print("注意力可视化图片生成中....")
+                    '''
+                    1. 读取所有id和文本
+                    2. 生成文本热力图
+                    3. 遍历所有id，获取对应图片npy
+                    4. 生成图片热力图
+                    '''
+
+                    test_id = load_file('input/prepared/test_id')
+                    test_text = load_file('input/prepared/test_text')
+                    # 对文本和图片进行编码
+                    bert_embed_text = self.model.bertl_text.embeddings(input_ids=batch['text'])
+                    bert_text = self.model.bertl_text.encoder.layer[i](bert_embed_text)[0]
+                    bert_embed_text = bert_text
+                    # (bs, grid_num, dim)
+                    img_feat = self.model.vit_forward(batch['img'])
+
+                    # 获取权重矩阵
+                    guide_attention_layer = self.model.guide_attention_layer.strategy.do_guide
+                    text_attention_weight = guide_attention_layer.text_sparse_attention.attention_weight(
+                        bert_embed_text, img_feat)
+                    image_attention_weight = guide_attention_layer.image_sparse_attention.attention_weight(
+                        bert_embed_text, img_feat)
+                    # 遍历当前这里的id
+                    # for idx in range(i * self.opt['dataloader']['batch_size'], batch['text'].size(0)):
+                    # 遍历权重矩阵，计算每个的图
+                    for idx in range(text_attention_weight.size(0)):
+                        id = test_id[i * self.opt['dataloader']['batch_size'] + idx]
+                        text = test_text[i * self.opt['dataloader']['batch_size'] + idx]
+                        img_attention_visualization(id, image_attention_weight[idx].detach().numpy())
+                        text_attention_visualization(id, text, text_attention_weight[idx])
+
+                    print("注意力可视化图片生成完毕")
+
                 input={}
                 for key in batch:
                     input[key]=batch[key].to(self.device)
