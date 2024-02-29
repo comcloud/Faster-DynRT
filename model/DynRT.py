@@ -3,7 +3,7 @@ import timm
 import model
 from transformers import RobertaModel
 from model.attention.GuideAttentionLayer import GuideAttentionLayer
-from model.attention.TranitionalAttentionLayer import TraditionalAttentionLayer
+from model.attention.TraditionalAttentionLayer import TraditionalAttentionLayer
 
 def freeze_layers(model):
     for child in model.children():
