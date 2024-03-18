@@ -21,11 +21,11 @@ class DynRT(torch.nn.Module):
         self.guide_attention_layer = GuideAttentionLayer(batch_size=batch_size, text_seq_len=opt['len'],
                                                          text_hidden_dim=opt['mlp_size'],
                                                          image_block_num=opt['IMG_SCALE'] * opt['IMG_SCALE'],
-                                                         image_hidden_dim=opt['mlp_size'])
+                                                         image_hidden_dim=opt['mlp_size'], use_type=3, use_source=1)
         self.tradition_attention_layer = TraditionalAttentionLayer(text_seq_len=opt['len'],
                                                                    text_hidden_dim=opt['mlp_size'],
                                                                    image_block_num=opt['IMG_SCALE'] * opt['IMG_SCALE'],
-                                                                   image_hidden_dim=opt['mlp_size'])
+                                                                   image_hidden_dim=opt['mlp_size'], use_type=3)
         if not self.opt["finetune"]:
             freeze_layers(self.bertl_text)
             freeze_layers(self.vit)
@@ -63,8 +63,8 @@ class DynRT(torch.nn.Module):
             bert_embed_text = bert_text
         # (bs, grid_num, dim)
         img_feat = self.vit_forward(input[self.input2])
-        bert_embed_text, img_feat = self.guide_attention_layer(bert_embed_text, img_feat)
-        # bert_embed_text, img_feat = self.tradition_attention_layer(bert_embed_text, img_feat)
+        bert_embed_text, img_feat = self.guide_attention_layer.process(bert_embed_text, img_feat)
+        # bert_embed_text, img_feat = self.tradition_attention_layer.process(bert_embed_text, img_feat)
 
         (out1, lang_emb, img_emb) = self.trar(img_feat, bert_embed_text,input[self.input3].unsqueeze(1).unsqueeze(2))
 
