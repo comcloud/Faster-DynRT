@@ -10,30 +10,62 @@ from model.attention.GuideAttention import GuideAttention
 '''
 
 
-class GuideAttentionLayer:
+class GuideAttentionLayer(nn.Module):
     def __init__(self, batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim, use_type,
-                 use_source):
+                 use_source, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.batch_size = batch_size
         self.text_seq_len = text_seq_len
         self.text_hidden_dim = text_hidden_dim
         self.image_block_num = image_block_num
         self.image_hidden_dim = image_hidden_dim
         self.use_type = use_type
-        self.strategies = {
-            0: TextGuideAttention(batch_size, text_seq_len, text_hidden_dim),
-            1: ImageGuideAttention(batch_size, image_block_num, image_hidden_dim),
-            2: BothGuideAttention(batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim),
-            3: GuideAttention(batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim, use_source)
-        }
+        self.text_guide = TextGuideAttention(batch_size, text_seq_len, text_hidden_dim)
+        self.image_guide = ImageGuideAttention(batch_size, image_block_num, image_hidden_dim)
+        self.both_guide = BothGuideAttention(batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim)
+        self.cross_guide = GuideAttention(batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim, use_source)
 
-    def process(self, text_feature=None, image_feature=None):
+    def forward(self, text_feature=None, image_feature=None):
         '''
         :param use_type: 标注使用的方法类型
         :param text_feature: 文本特征，(batch_size, text_seq_len, text_hidden_dim)
         :param image_feature: 图片特征，(batch_size, image_block_num, image_hidden_dim)
         '''
+        return self.process_features(text_feature, image_feature)
 
-        return self.strategies.get(self.use_type)(text_feature, image_feature)
+    def process_features(self, text_feature, image_feature):
+        guides = {
+            0: self.text_guide,
+            1: self.image_guide,
+            2: self.both_guide,
+            3: self.guide,
+            # 如果需要添加其他类型，可以继续扩展字典
+            # key 为 use_type 的值，value 为相应的方法
+            # 示例：3: self.another_guide
+        }
+        # 检查 use_type 是否在字典中
+        if self.use_type in guides:
+            # 调用相应的方法
+            return guides[self.use_type](text_feature, image_feature)
+        else:
+            # 如果 use_type 不在字典中，则调用默认的 guide 方法
+            return self.guide(text_feature, image_feature)
+
+    def text_guide(self, text_feature, image_feature):
+        # 实现 text_guide 方法的代码
+        return self.text_guide(text_feature, image_feature)
+
+    def image_guide(self, text_feature, image_feature):
+        # 实现 image_guide 方法的代码
+        return self.image_guide(text_feature, image_feature)
+
+    def both_guide(self, text_feature, image_feature):
+        # 实现 both_guide 方法的代码
+        return self.both_guide(text_feature, image_feature)
+
+    def guide(self, text_feature, image_feature):
+        # 实现 guide 方法的代码
+        return self.cross_guide(text_feature, image_feature)
 
 
 '''
@@ -275,6 +307,6 @@ if __name__ == '__main__':
     text_input = torch.randn(8, 128, 768)  # 输入张量大小为 (batch_size, seq_len, hidden_dim)
     image_input = torch.randn(8, 197, 768)  # 输入张量大小为 (batch_size, seq_len, hidden_dim)
     attr = GuideAttentionLayer(8, 128, 768, 197, 768, 3, 1)
-    res1, res2 = attr.process(text_input, image_input)
+    res1, res2 = attr(text_input, image_input)
     print(res1.size())  # 输出张量大小为 (batch_size, seq_len, hidden_dim)
     print(res2.size())  # 输出张量大小为 (batch_size, seq_len, hidden_dim)

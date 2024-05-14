@@ -15,7 +15,7 @@
         "dataloader": {
             "requires": {
                 "tokenizer_roberta": {
-                    "path": "roberta-base"
+                    "path": "./model/roberta"
                 }
             },
             "loaders": {
