@@ -35,10 +35,10 @@ class GuideAttentionLayer(nn.Module):
 
     def process_features(self, text_feature, image_feature):
         guides = {
-            0: self.text_guide,
-            1: self.image_guide,
-            2: self.both_guide,
-            3: self.guide,
+            0: self.text_guide_fun,
+            1: self.image_guide_fun,
+            2: self.both_guide_fun,
+            3: self.guide_fun,
             # 如果需要添加其他类型，可以继续扩展字典
             # key 为 use_type 的值，value 为相应的方法
             # 示例：3: self.another_guide
@@ -51,19 +51,19 @@ class GuideAttentionLayer(nn.Module):
             # 如果 use_type 不在字典中，则调用默认的 guide 方法
             return self.guide(text_feature, image_feature)
 
-    def text_guide(self, text_feature, image_feature):
+    def text_guide_fun(self, text_feature, image_feature):
         # 实现 text_guide 方法的代码
         return self.text_guide(text_feature, image_feature)
 
-    def image_guide(self, text_feature, image_feature):
+    def image_guide_fun(self, text_feature, image_feature):
         # 实现 image_guide 方法的代码
         return self.image_guide(text_feature, image_feature)
 
-    def both_guide(self, text_feature, image_feature):
+    def both_guide_fun(self, text_feature, image_feature):
         # 实现 both_guide 方法的代码
         return self.both_guide(text_feature, image_feature)
 
-    def guide(self, text_feature, image_feature):
+    def guide_fun(self, text_feature, image_feature):
         # 实现 guide 方法的代码
         return self.cross_guide(text_feature, image_feature)
 

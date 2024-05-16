@@ -22,7 +22,9 @@
                 "text": {
                     "data_path": "input/prepared_clean/",
                     "len": 100,
-                    "pad": 1
+                    "pad": 1,
+                    "att_file_path" : "input/prepared_clean/att/",
+                    "mould": "A photo containing the {att_0}, {att_1}, {att_2}, {att_3} and {att_4}"
                 },
                 "img": {
                     "data_path": "input/prepared_clean/",
@@ -49,6 +51,7 @@
             "input1": "text",
             "input2": "img",
             "input3": "text_mask",
+            "input4": "att",
             "layer": 4,
             "tau_max": 10,
             "ORDERS": [

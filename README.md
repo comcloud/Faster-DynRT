@@ -314,3 +314,35 @@ if __name__ == "__main__":
     image_process(is_single=False)
 
 ~~~
+
+### 导出图片属性
+~~~python
+        # 添加图片id
+        # 数据清洗，将id按照属性分为3份train, test, valid
+        train_id = self.id['train']
+        test_id = self.id['test']
+        valid_id = self.id['valid']
+        self.dump_att_file(train_id, mode='train')
+        self.dump_att_file(test_id, mode='test')
+        self.dump_att_file(valid_id, mode='valid')
+
+        result["att"] = self.att[int(self.id[mode][index])]
+
+    def dump_att_file(self, id, mode):
+        att_list = []
+        att_dict = {}
+        for i in range(len(id)):
+            # 写出去
+            att = self.att[int(id[i])]
+            att_list.append(att)
+            att_dict[int(id[i])] = att
+        with open('/Users/rayss/pythonProjects/DynRT/input/prepared_clean/att/' + mode + '_att.txt', 'w') as f:
+            # 使用循环遍历列表中的元素，并将其写入文件中
+            for item in att_list:
+                f.write(str(item))  # 写入每个元素，并在其后添加换行符
+                f.write('\n')
+        with open('/Users/rayss/pythonProjects/DynRT/input/prepared_clean/att/' + mode + '_att_dict.json', 'w') as f:
+            json.dump(att_dict, f)
+            f.write('\n')
+
+~~~

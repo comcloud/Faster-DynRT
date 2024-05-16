@@ -2,6 +2,9 @@ import torch
 import timm
 import model
 from transformers import RobertaModel
+
+from model.TRAR.cls_layer import cls_layer_both
+from model.attention.BridgeInfoLayer import BridgeInfoLayer
 from model.attention.GuideAttentionLayer import GuideAttentionLayer
 from model.attention.TraditionalAttentionLayer import TraditionalAttentionLayer
 
@@ -18,6 +21,7 @@ class DynRT(torch.nn.Module):
         self.bertl_text = bertl_text
         self.opt = opt
         self.vit = vit
+        self.bridge_info_layer = BridgeInfoLayer(opt['len'], opt['IMG_SCALE'] * opt['IMG_SCALE'])
         self.guide_attention_layer = GuideAttentionLayer(batch_size=batch_size, text_seq_len=opt['len'],
                                                          text_hidden_dim=opt['mlp_size'],
                                                          image_block_num=opt['IMG_SCALE'] * opt['IMG_SCALE'],
@@ -35,13 +39,25 @@ class DynRT(torch.nn.Module):
         self.input1=opt["input1"]
         self.input2=opt["input2"]
         self.input3=opt["input3"]
+        self.input4=opt["input4"]
 
         self.trar = model.TRAR.DynRT(opt)
+        self.cls_layer = cls_layer_both(opt["hidden_size"], opt["output_size"])
         self.sigm = torch.nn.Sigmoid()
         self.classifier = torch.nn.Sequential(
             torch.nn.Dropout(0.5),
             torch.nn.Linear(opt["output_size"],2)
         )
+
+    def bert_forward(self,x):
+        # (bs, max_len, dim)
+        bert_embed_text = self.bertl_text.embeddings(input_ids=x)
+        # (bs, max_len, dim)
+        # bert_text = self.bertl_text.encoder.layer[0](bert_embed_text)[0]
+        for i in range(self.opt["roberta_layer"]):
+            bert_embed_text = self.bertl_text.encoder.layer[i](bert_embed_text)[0]
+
+        return bert_embed_text
 
     def vit_forward(self,x):
         x = self.vit.patch_embed(x)
@@ -54,26 +70,37 @@ class DynRT(torch.nn.Module):
 
     # forward propagate input
     def forward(self, input):
-        # (bs, max_len, dim)
-        bert_embed_text = self.bertl_text.embeddings(input_ids = input[self.input1])
-        # (bs, max_len, dim)
-        # bert_text = self.bertl_text.encoder.layer[0](bert_embed_text)[0]
-        for i in range(self.opt["roberta_layer"]):
-            bert_text = self.bertl_text.encoder.layer[i](bert_embed_text)[0]
-            bert_embed_text = bert_text
-        # (bs, grid_num, dim)
+        # 属性
+        bert_embed_att = self.bert_forward(input[self.input4])
+        # 文本
+        bert_embed_text = self.bert_forward(input[self.input1])
+        # 图像 (bs, grid_num, dim)
         img_feat = self.vit_forward(input[self.input2])
-        bert_embed_text, img_feat = self.guide_attention_layer(bert_embed_text, img_feat)
+
+        # 属性关联
+        text_att, img_att = self.bridge_info_layer(bert_embed_text, bert_embed_att, img_feat)
+        # 引导
+        bert_embed_text, img_feat = self.guide_attention_layer(text_att, img_att)
         # bert_embed_text, img_feat = self.tradition_attention_layer.process(bert_embed_text, img_feat)
 
         (out1, lang_emb, img_emb) = self.trar(img_feat, bert_embed_text,input[self.input3].unsqueeze(1).unsqueeze(2))
 
+        # out = self.combine_final_feature(text_att, img_att, out1)
         out = self.classifier(out1)
         result = self.sigm(out)
 
-        del bert_embed_text, bert_text, img_feat, out1, out
+        del bert_embed_text, img_feat, out1, out
     
         return result, lang_emb, img_emb
+
+    def combine_final_feature(self, text_att, img_att, out1):
+        lang_feat = torch.mean(text_att, dim=1)
+        img_feat = torch.mean(img_att, dim=1)
+        proj_feat = self.cls_layer(lang_feat, img_feat)
+        out = self.classifier(self.cls_layer(out1 + proj_feat))
+        del lang_feat, img_feat, proj_feat
+        return out
+
 
 def build_DynRT(opt,requirements):
 
