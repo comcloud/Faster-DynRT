@@ -52,6 +52,7 @@
             "input2": "img",
             "input3": "text_mask",
             "input4": "att",
+            "input5": "att_mask",
             "layer": 4,
             "tau_max": 10,
             "ORDERS": [

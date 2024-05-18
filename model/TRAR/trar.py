@@ -413,7 +413,7 @@ def getTextMasks(max_len, order):
     masks = torch.stack(masks)
     return masks
 
-def getMasks_text_multimodal(x_mask, __C, mask_txt_linear):
+def getMasks_text_multimodal(x_mask, __C):
     mask_list = []
     ORDERS = __C["ORDERS"]
     for order in ORDERS:
@@ -421,8 +421,8 @@ def getMasks_text_multimodal(x_mask, __C, mask_txt_linear):
             mask_list.append(x_mask)
         else:
             mask_text = torch.from_numpy(getImgMasks(__C["len"]//10, order)).float().to(x_mask.device).transpose(1, 0)  # (max_len, max_len)
-            mask = mask_txt_linear(mask_text).transpose(1, 0)
-            mask = torch.logical_or(x_mask, mask)  # (batch_size, 1, grid_num, max_len)
+            # mask = mask_txt_linear(mask_text).transpose(1, 0)
+            mask = torch.logical_or(x_mask, mask_text)  # (batch_size, 1, grid_num, max_len)
             mask_list.append(mask)
     return mask_list
 
@@ -439,19 +439,49 @@ class DynRT_ED(nn.Module):
             opt_copy["orders"] = len(opt["ORDERS"])-i
             opt_list.append(copy.deepcopy(opt_copy))
         self.dec_list = nn.ModuleList([multiTRAR_SA_block(opt_list[-(i+1)]) for i in range(opt["layer"])])
-        self.mask_txt_linear = nn.Linear(opt["len"], opt["IMG_SCALE"] * opt["IMG_SCALE"])
+        # self.mask_txt_linear = nn.Linear(opt["len"], opt["IMG_SCALE"] * opt["IMG_SCALE"])
 
     def forward(self, x, y, x_mask, y_mask):
-        origin_x, origin_y = x, y
         # x text (bs, max_len, dim) y img (bs, gird_num, dim) x_mask (bs, 1, 1, max_len) y_mask (bs, 1, 1, grid_num)
         y_masks = getMasks_img_multimodal(y_mask, self.opt)
         # x_masks = getMasks_text_multimodal(x_mask, self.opt, self.mask_txt_linear)
         # Input encoder last hidden vector
         # And obtain decoder last hidden vectors
         for i, dec in enumerate(self.dec_list):
-            x = dec(x, origin_y, y_masks[:i+1], x_mask, self.tau, self.training) # (4, 360, 768)
+            x = dec(x, y, y_masks[:i+1], x_mask, self.tau, self.training) # (4, 360, 768)
             # y = dec(y, origin_x, x_masks[:i+1], y_mask, self.tau, self.training)
-        return (x, origin_y), (origin_x, y)
+        return x, y
+
+    def set_tau(self, tau):
+        self.tau = tau
+
+class LSAM_ED(nn.Module):
+    def __init__(self, opt):
+        super(LSAM_ED, self).__init__()
+        self.opt = opt
+        self.tau = opt["tau_max"]
+        ORDERS = [0, 1, 2, 3]
+        layers = 4
+        opt_list = []
+        for i in range(layers):
+            opt_copy = copy.deepcopy(opt)
+            opt_copy["ORDERS"] = ORDERS[:len(ORDERS)-i]
+            opt_copy["orders"] = len(ORDERS)-i
+            opt_copy = copy.deepcopy(opt_copy)
+            # 用一下软路由
+            # opt_copy["routing"] = 'soft'
+            opt_list.append(opt_copy)
+        self.dec_list = nn.ModuleList([multiTRAR_SA_block(opt_list[-(i+1)]) for i in range(layers)])
+
+    def forward(self, x, y, x_mask, y_mask):
+        # x text (bs, max_len, dim) y img (bs, gird_num, dim) x_mask (bs, 1, 1, max_len) y_mask (bs, 1, 1, grid_num)
+        y_masks = getMasks_text_multimodal(y_mask, self.opt)
+        # Input encoder last hidden vector
+        # And obtain decoder last hidden vectors
+        for i, dec in enumerate(self.dec_list):
+            x = dec(x, y, y_masks[:i+1], x_mask, self.tau, self.training) # (4, 360, 768)
+            # y = dec(y, origin_x, x_masks[:i+1], y_mask, self.tau, self.training)
+        return x, y
 
     def set_tau(self, tau):
         self.tau = tau

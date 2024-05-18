@@ -5,7 +5,9 @@ from transformers import RobertaModel
 
 from model.TRAR.cls_layer import cls_layer_both
 from model.attention.BridgeInfoLayer import BridgeInfoLayer
+from model.attention.CrossModalTransformerLayer import CrossModalTransformerLayer
 from model.attention.GuideAttentionLayer import GuideAttentionLayer
+from model.attention.MultimodalFusionLayer import MultimodalFusionLayer
 from model.attention.TraditionalAttentionLayer import TraditionalAttentionLayer
 
 def freeze_layers(model):
@@ -15,13 +17,14 @@ def freeze_layers(model):
 
 class DynRT(torch.nn.Module):
   # define model elements
-    def __init__(self,bertl_text,vit, opt,batch_size):
+    def __init__(self,bertl_text,vit, opt,batch_size=32):
         super(DynRT, self).__init__()
 
         self.bertl_text = bertl_text
         self.opt = opt
         self.vit = vit
-        self.bridge_info_layer = BridgeInfoLayer(opt['len'], opt['IMG_SCALE'] * opt['IMG_SCALE'])
+        self.bridge_info_layer = BridgeInfoLayer(opt)
+        self.cross_modal_transformer_layer = CrossModalTransformerLayer(opt)
         self.guide_attention_layer = GuideAttentionLayer(batch_size=batch_size, text_seq_len=opt['len'],
                                                          text_hidden_dim=opt['mlp_size'],
                                                          image_block_num=opt['IMG_SCALE'] * opt['IMG_SCALE'],
@@ -40,10 +43,12 @@ class DynRT(torch.nn.Module):
         self.input2=opt["input2"]
         self.input3=opt["input3"]
         self.input4=opt["input4"]
+        self.input5=opt["input5"]
 
         self.trar = model.TRAR.DynRT(opt)
         self.cls_layer = cls_layer_both(opt["hidden_size"], opt["output_size"])
         self.sigm = torch.nn.Sigmoid()
+        self.fusion_layer = MultimodalFusionLayer(opt)
         self.classifier = torch.nn.Sequential(
             torch.nn.Dropout(0.5),
             torch.nn.Linear(opt["output_size"],2)
@@ -78,28 +83,22 @@ class DynRT(torch.nn.Module):
         img_feat = self.vit_forward(input[self.input2])
 
         # 属性关联
-        text_att, img_att = self.bridge_info_layer(bert_embed_text, bert_embed_att, img_feat)
+        text_incongruity, image_incongruity = self.bridge_info_layer(bert_embed_text, input[self.input3],
+                                                                     bert_embed_att,
+                                                                     input[self.input5], img_feat)
+        text_incongruity, image_incongruity = self.cross_modal_transformer_layer(text_incongruity, image_incongruity)
         # 引导
-        bert_embed_text, img_feat = self.guide_attention_layer(text_att, img_att)
+        # bert_embed_text, img_feat = self.guide_attention_layer(text_att, img_att)
         # bert_embed_text, img_feat = self.tradition_attention_layer.process(bert_embed_text, img_feat)
 
-        (out1, lang_emb, img_emb) = self.trar(img_feat, bert_embed_text,input[self.input3].unsqueeze(1).unsqueeze(2))
+        # (out1, lang_emb, img_emb) = self.trar(img_feat, bert_embed_text,input[self.input3].unsqueeze(1).unsqueeze(2))
 
-        # out = self.combine_final_feature(text_att, img_att, out1)
-        out = self.classifier(out1)
-        result = self.sigm(out)
+        out = self.fusion_layer(text_incongruity, image_incongruity, bert_embed_text, img_feat)
+        out = self.classifier(out)
+        out = self.sigm(out)
+        del bert_embed_text, img_feat
 
-        del bert_embed_text, img_feat, out1, out
-    
-        return result, lang_emb, img_emb
-
-    def combine_final_feature(self, text_att, img_att, out1):
-        lang_feat = torch.mean(text_att, dim=1)
-        img_feat = torch.mean(img_att, dim=1)
-        proj_feat = self.cls_layer(lang_feat, img_feat)
-        out = self.classifier(self.cls_layer(out1 + proj_feat))
-        del lang_feat, img_feat, proj_feat
-        return out
+        return out, text_incongruity, image_incongruity
 
 
 def build_DynRT(opt,requirements):

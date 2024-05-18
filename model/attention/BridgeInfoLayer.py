@@ -8,24 +8,71 @@ import torch.nn
 import torch.nn.functional as F
 from torch import nn
 
+from model.TRAR import LayerNorm
+from model.TRAR.trar import LSAM_ED, FFN, DynRT_ED
+from model.attention.MHAtt import MHAtt
+
 
 class BridgeInfoLayer(torch.nn.Module):
-    def __init__(self, seq_len, block_num):
+    def __init__(self, opt):
         super(BridgeInfoLayer, self).__init__()
-        self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
-        self.text_biaffine = Biaffine(seq_len, seq_len, seq_len).to(self.device)
-        self.image_biaffine = Biaffine(block_num, seq_len, block_num).to(self.device)
+        self.dynamic_net = LSAM_ED(opt)
+        self.dynamic_net_img = DynRT_ED(opt)
+        self.biaff_trans = BiaffineTransformer(opt)
 
-    def forward(self, text_feature, att_feature, image_feature):
+    def forward(self, text_feature, text_mask, att_feature, att_mask, image_feature):
+
         # 文属
-        text_feature = self.text_biaffine(text_feature, att_feature)
-        # 图属
-        image_feature = self.image_biaffine(image_feature, att_feature)
+        text_feature, _ = self.dynamic_net(
+            text_feature,
+            att_feature,
+            text_mask.unsqueeze(1).unsqueeze(2),
+            att_mask.unsqueeze(1).unsqueeze(2)
+        )
 
-        # 跨模态
-        # text_feature = self.cross_attention(text_feature, image_feature, image_feature)
-        # image_feature = self.cross_attention(image_feature, text_feature, text_feature)
+        image_feature = self.biaff_trans(att_feature, image_feature)
+
         return text_feature, image_feature
+
+
+class BiaffineTransformer(nn.Module):
+    def __init__(self, opt):
+        super(BiaffineTransformer, self).__init__()
+        self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
+        self.seq_len = opt['len']
+        self.block_num = opt['IMG_SCALE'] * opt['IMG_SCALE']
+        self.text_biaffine = Biaffine(self.seq_len, self.seq_len, self.seq_len).to(self.device)
+        self.image_biaffine = Biaffine(self.block_num, self.seq_len, self.block_num).to(self.device)
+
+        self.text_self_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
+        self.image_self_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
+
+        self.text_ffn = FFN(opt)
+        self.image_ffn = FFN(opt)
+
+        self.dropout1 = nn.Dropout(opt["dropout"])
+        self.norm1 = LayerNorm(opt["hidden_size"])
+
+        self.dropout2 = nn.Dropout(opt["dropout"])
+        self.norm2 = LayerNorm(opt["hidden_size"])
+
+        self.dropout3 = nn.Dropout(opt["dropout"])
+        self.norm3 = LayerNorm(opt["hidden_size"])
+
+    def forward(self, att_feature, image_feature):
+
+        image_feature = self.norm1(image_feature + self.dropout1(
+            self.image_biaffine(image_feature, att_feature)
+        ))  # (64, 49, 512) # (bs, 49, 768)
+
+        image_feature = self.norm2(image_feature + self.dropout2(
+            self.image_self_attn(v=image_feature, k=image_feature, q=image_feature)
+        ))
+
+        image_feature = self.norm3(image_feature + self.dropout3(
+            self.image_ffn(image_feature)
+        ))
+        return image_feature
 
 
 class Biaffine(nn.Module):
@@ -57,74 +104,12 @@ class Biaffine(nn.Module):
                self.in_a_out_ln(y.transpose(-2, -1)).transpose(-2, -1)
         z = x + y
 
+        d_k = x.size(-1)
         bilinar_mapping = torch.bmm(x, y.transpose(-2, -1))
+        bilinar_mapping = F.softmax(bilinar_mapping, dim=-1) / math.sqrt(d_k)
         bilinar_mapping = torch.bmm(bilinar_mapping, z)
         return bilinar_mapping
 
-
-class MHAtt(nn.Module):
-    def __init__(self, q_hidden_dim, k_v_hidden_dim, head=1):
-        super(MHAtt, self).__init__()
-        self.head = head
-        self.q_hidden_dim = q_hidden_dim
-        self.k_v_hidden_dim = k_v_hidden_dim
-
-        self.linear_v = nn.Linear(k_v_hidden_dim, k_v_hidden_dim)
-        self.linear_k = nn.Linear(k_v_hidden_dim, k_v_hidden_dim)
-        self.linear_q = nn.Linear(q_hidden_dim, q_hidden_dim)
-        self.linear_merge = nn.Linear(q_hidden_dim, q_hidden_dim)
-
-        self.dropout = nn.Dropout(0.5)
-
-    def forward(self, q, k, v, mask=None):
-        n_batches = q.size(0)
-
-        v = self.linear_v(v).view(
-            n_batches,
-            -1,
-            self.head,
-            int(self.k_v_hidden_dim / self.head)
-        ).transpose(1, 2)
-
-        k = self.linear_k(k).view(
-            n_batches,
-            -1,
-            self.head,
-            int(self.k_v_hidden_dim / self.head)
-        ).transpose(1, 2)
-
-        q = self.linear_q(q).view(
-            n_batches,
-            -1,
-            self.head,
-            int(self.q_hidden_dim / self.head)
-        ).transpose(1, 2)
-
-        atted = self.att(v, k, q, mask)
-        atted = atted.transpose(1, 2).contiguous().view(
-            n_batches,
-            -1,
-            self.q_hidden_dim
-        )
-
-        atted = self.linear_merge(atted)
-
-        return atted
-
-    def att(self, value, key, query, mask):
-        d_k = query.size(-1)
-
-        scores = torch.matmul(
-            query, key.transpose(-2, -1)
-        ) / math.sqrt(d_k)
-
-        if mask is not None:
-            scores = scores.masked_fill(mask, -1e9)
-
-        att_map = F.softmax(scores, dim=-1)
-        att_map = self.dropout(att_map)
-
-        return torch.matmul(att_map, value)
 
 
 if __name__ == '__main__':
@@ -135,10 +120,16 @@ if __name__ == '__main__':
     # biaffine = Biaffine(49, 100, 49)
     # res = biaffine(i_f, a_f)
     # print(res.size())
-
-    model = BridgeInfoLayer(100, 49)
-    t_f, i_f = model(t_f, a_f, i_f)
-    # t_f = torch.mean(t_f, dim=1)
-    # i_f = torch.mean(i_f, dim=1)
+    opt = {
+        "len": 100,
+        "IMG_SCALE": 7,
+        "hidden_size": 768,
+        "dropout": 0.5,
+        "ffn_size": 768
+    }
+    model = BridgeInfoLayer(opt)
+    t_f, i_f = model(t_f, None, a_f, None, i_f)
+    t_f = torch.mean(t_f, dim=1)
+    i_f = torch.mean(i_f, dim=1)
     print(t_f.size())
     print(i_f.size())
