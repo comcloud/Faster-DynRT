@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from model.TRAR import LayerNorm
-from model.TRAR.trar import LSAM_ED, FFN, DynRT_ED
+from model.TRAR.trar import LSAM_ED, FFN
 from model.attention.MHAtt import MHAtt
 
 
@@ -17,7 +17,6 @@ class BridgeInfoLayer(torch.nn.Module):
     def __init__(self, opt):
         super(BridgeInfoLayer, self).__init__()
         self.dynamic_net = LSAM_ED(opt)
-        self.dynamic_net_img = DynRT_ED(opt)
         self.biaff_trans = BiaffineTransformer(opt)
 
     def forward(self, text_feature, text_mask, att_feature, att_mask, image_feature):

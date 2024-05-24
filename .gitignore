@@ -1,5 +1,8 @@
 model/vit
 model/roberta
+model/albert
+model/bert
+model/xlnet
 exp
 input/sentiment
 input/image_tensor

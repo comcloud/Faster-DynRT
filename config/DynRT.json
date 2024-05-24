@@ -53,13 +53,14 @@
             "input3": "text_mask",
             "input4": "att",
             "input5": "att_mask",
-            "layer": 4,
+            "layer": 5,
             "tau_max": 10,
             "ORDERS": [
                 0,
                 1,
                 2,
-                3
+                3,
+                4
             ],
             "IMG_SCALE": 7,
             "dropout": 0.5,
@@ -72,7 +73,7 @@
             "glimpses": 1,
             "mlp_size": 768,
             "output_size": 768,
-            "orders": 4,
+            "orders": 5,
             "pooling": "avg",
             "classifier": "both",
             "roberta_path": "./model/roberta",
@@ -93,7 +94,11 @@
                     "weight_decay": 0.01
                 },
                 "trar": {
-                    "lr": 1e-06,
+                    "lr": 2e-05,
+                    "weight_decay": 0.01
+                },
+                "bridge_info_layer" : {
+                    "lr": 3e-04,
                     "weight_decay": 0.01
                 },
                 "classifier": {}

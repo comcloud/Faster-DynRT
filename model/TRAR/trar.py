@@ -460,18 +460,16 @@ class LSAM_ED(nn.Module):
         super(LSAM_ED, self).__init__()
         self.opt = opt
         self.tau = opt["tau_max"]
-        ORDERS = [0, 1, 2, 3]
-        layers = 4
         opt_list = []
-        for i in range(layers):
+        for i in range(self.opt['layer']):
             opt_copy = copy.deepcopy(opt)
-            opt_copy["ORDERS"] = ORDERS[:len(ORDERS)-i]
-            opt_copy["orders"] = len(ORDERS)-i
+            opt_copy["ORDERS"] = self.opt['ORDERS'][:len(self.opt['ORDERS'])-i]
+            opt_copy["orders"] = len(self.opt['ORDERS'])-i
             opt_copy = copy.deepcopy(opt_copy)
             # 用一下软路由
             # opt_copy["routing"] = 'soft'
             opt_list.append(opt_copy)
-        self.dec_list = nn.ModuleList([multiTRAR_SA_block(opt_list[-(i+1)]) for i in range(layers)])
+        self.dec_list = nn.ModuleList([multiTRAR_SA_block(opt_list[-(i+1)]) for i in range(self.opt['layer'])])
 
     def forward(self, x, y, x_mask, y_mask):
         # x text (bs, max_len, dim) y img (bs, gird_num, dim) x_mask (bs, 1, 1, max_len) y_mask (bs, 1, 1, grid_num)
