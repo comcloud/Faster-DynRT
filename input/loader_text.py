@@ -36,7 +36,7 @@ class loader_text:
         if "pad" not in opt:
             opt["pad"]=1
         self.pad=opt["pad"]
-        self.tokenizer_roberta=input[list(input.keys())[0]]
+        self.tokenizer=input[list(input.keys())[0]]
 
         self.text_mask = {
             "train":[],
@@ -65,7 +65,7 @@ class loader_text:
     def extract_feature(self, source_data, mask, id):
         for mode in source_data.keys():
             for index, text in enumerate(source_data[mode]):
-                indexed_tokens_for_text = self.tokenizer_roberta(text)['input_ids']
+                indexed_tokens_for_text = self.tokenizer(text)['input_ids']
                 if len(indexed_tokens_for_text) > self.len:
                     indexed_tokens_for_text = indexed_tokens_for_text[0:self.len]
                 text_mask = torch.BoolTensor(

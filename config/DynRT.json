@@ -16,7 +16,17 @@
             "requires": {
                 "tokenizer_roberta": {
                     "path": "./model/roberta"
-                }
+                },
+                "tokenizer_albert": {
+                    "path": "./model/albert"
+                },
+                "tokenizer_bert": {
+                    "path": "./model/bert"
+                },
+                "tokenizer_xlnet": {
+                    "path": "./model/xlnet"
+                },
+                "tokenizer": "tokenizer_roberta"
             },
             "loaders": {
                 "text": {
@@ -76,7 +86,11 @@
             "orders": 5,
             "pooling": "avg",
             "classifier": "both",
-            "roberta_path": "./model/roberta",
+            "model": "model_roberta",
+            "model_roberta": "./model/roberta",
+            "model_albert": "./model/albert",
+            "model_bert": "./model/bert",
+            "model_xlnet": "./model/xlnet",
             "roberta_layer": 1,
             "vitmodel": "vit_base_patch32_224",
             "finetune": false

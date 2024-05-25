@@ -446,9 +446,11 @@ class onerun:
         self.log.info("Require : %s" % list(requireopt.keys()))
 
         inputs={}
-        for key in requireopt:
-            input._requires[key](inputs,requireopt[key])
-            self.log.info("Loaded %s : %s" % (key,json.dumps(requireopt[key])))
+        # for key in requireopt:
+        #     input._requires[key](inputs,requireopt[key])
+        #     self.log.info("Loaded %s : %s" % (key,json.dumps(requireopt[key])))
+        key = requireopt['tokenizer']
+        input._requires[key](inputs, requireopt[key])
         loaderopt=opt["loaders"]
         for key in loaderopt:
             loaders[key]=input._loadermap[key]

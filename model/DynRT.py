@@ -55,12 +55,16 @@ class DynRT(torch.nn.Module):
         )
 
     def bert_forward(self,x):
-        # (bs, max_len, dim)
-        bert_embed_text = self.bertl_text.embeddings(input_ids=x)
-        # (bs, max_len, dim)
-        # bert_text = self.bertl_text.encoder.layer[0](bert_embed_text)[0]
-        for i in range(self.opt["roberta_layer"]):
-            bert_embed_text = self.bertl_text.encoder.layer[i](bert_embed_text)[0]
+        # 如果roberta模型，则走bert_forward，否则就走自己的模型结果
+        if self.opt['model'] == 'model_roberta':
+            # (bs, max_len, dim)
+            bert_embed_text = self.bertl_text.embeddings(input_ids=x)
+            # (bs, max_len, dim)
+            # bert_text = self.bertl_text.encoder.layer[0](bert_embed_text)[0]
+            for i in range(self.opt["roberta_layer"]):
+                bert_embed_text = self.bertl_text.encoder.layer[i](bert_embed_text)[0]
+        else:
+            bert_embed_text = self.bertl_text(x)['last_hidden_state']
 
         return bert_embed_text
 
@@ -102,9 +106,9 @@ class DynRT(torch.nn.Module):
 
 
 def build_DynRT(opt,requirements):
-
+    bertl_text = get_text_encoder(opt)
     
-    bertl_text = RobertaModel.from_pretrained(opt["roberta_path"])
+    # bertl_text = RobertaModel.from_pretrained(opt["roberta_path"])
     if "vitmodel" not in opt:
         opt["vitmodel"] = "vit_base_patch32_224"
     # vit = timm.create_model(opt["vitmodel"], pretrained=True)
@@ -113,3 +117,29 @@ def build_DynRT(opt,requirements):
     vit = timm.models.create_model(opt["vitmodel"], pretrained=True, pretrained_cfg=pretrained_cfg)
 
     return DynRT(bertl_text, vit, opt,requirements['batch_size'])
+
+
+def get_text_encoder(opt):
+    def get_roberta(path):
+        from transformers import RobertaModel
+        return RobertaModel.from_pretrained(path)
+
+    def get_bert(path):
+        from transformers import BertModel
+        return BertModel.from_pretrained(path)
+
+    def get_albert(path):
+        from transformers import AlbertModel
+        return AlbertModel.from_pretrained(path)
+
+    def get_xlnet(path):
+        from transformers import XLNetModel
+        return XLNetModel.from_pretrained(path)
+
+    model = {
+        "model_roberta": get_roberta,
+        "model_bert": get_bert,
+        "model_albert": get_albert,
+        "model_xlnet": get_xlnet
+    }
+    return model[opt['model']](opt[opt['model']])
