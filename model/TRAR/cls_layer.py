@@ -35,6 +35,7 @@ class cls_layer_both(nn.Module):
         self.proj = nn.Linear(input_dim, output_dim)
         
     def forward(self, lang_feat, img_feat):
+        # proj_feat = 1 / 2 * lang_feat + 1 / 2 * img_feat
         proj_feat = lang_feat + img_feat
         proj_feat = self.proj_norm(proj_feat)
         proj_feat = self.proj(proj_feat)

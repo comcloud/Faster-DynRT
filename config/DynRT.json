@@ -111,11 +111,23 @@
                     "lr": 2e-05,
                     "weight_decay": 0.01
                 },
-                "bridge_info_layer" : {
+                "bridge_info_layer.image_biaff_trans" : {
                     "lr": 3e-04,
                     "weight_decay": 0.01
                 },
-                "classifier": {}
+                "bridge_info_layer.dynamic_net" : {
+                    "lr": 1e-04,
+                    "weight_decay": 0.01
+                },
+                "cross_modal_transformer_layer" : {
+                    "lr": 1e-04,
+                    "weight_decay": 0.01
+                },
+
+                "classifier": {
+                    "lr": 3e-04,
+                    "weight_decay": 0.01
+                }
             }
         },
         "lossopt": {

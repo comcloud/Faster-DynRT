@@ -17,10 +17,10 @@ class BridgeInfoLayer(torch.nn.Module):
     def __init__(self, opt):
         super(BridgeInfoLayer, self).__init__()
         self.dynamic_net = LSAM_ED(opt)
-        self.biaff_trans = BiaffineTransformer(opt)
+        self.image_biaff_trans = ImageBiaffineTransformer(opt)
+        self.text_biaff_trans = TextBiaffineTransformer(opt)
 
     def forward(self, text_feature, text_mask, att_feature, att_mask, image_feature):
-
         # 文属
         text_feature, _ = self.dynamic_net(
             text_feature,
@@ -28,25 +28,23 @@ class BridgeInfoLayer(torch.nn.Module):
             text_mask.unsqueeze(1).unsqueeze(2),
             att_mask.unsqueeze(1).unsqueeze(2)
         )
+        # text_feature = self.text_biaff_trans(att_feature, text_feature)
 
-        image_feature = self.biaff_trans(att_feature, image_feature)
+        image_feature = self.image_biaff_trans(att_feature, image_feature)
 
         return text_feature, image_feature
 
 
-class BiaffineTransformer(nn.Module):
+class ImageBiaffineTransformer(nn.Module):
     def __init__(self, opt):
-        super(BiaffineTransformer, self).__init__()
+        super(ImageBiaffineTransformer, self).__init__()
         self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
         self.seq_len = opt['len']
         self.block_num = opt['IMG_SCALE'] * opt['IMG_SCALE']
-        self.text_biaffine = Biaffine(self.seq_len, self.seq_len, self.seq_len).to(self.device)
         self.image_biaffine = Biaffine(self.block_num, self.seq_len, self.block_num).to(self.device)
 
-        self.text_self_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
         self.image_self_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
 
-        self.text_ffn = FFN(opt)
         self.image_ffn = FFN(opt)
 
         self.dropout1 = nn.Dropout(opt["dropout"])
@@ -59,7 +57,6 @@ class BiaffineTransformer(nn.Module):
         self.norm3 = LayerNorm(opt["hidden_size"])
 
     def forward(self, att_feature, image_feature):
-
         image_feature = self.norm1(image_feature + self.dropout1(
             self.image_biaffine(image_feature, att_feature)
         ))  # (64, 49, 512) # (bs, 49, 768)
@@ -72,6 +69,43 @@ class BiaffineTransformer(nn.Module):
             self.image_ffn(image_feature)
         ))
         return image_feature
+
+
+class TextBiaffineTransformer(nn.Module):
+    def __init__(self, opt):
+        super(TextBiaffineTransformer, self).__init__()
+        self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
+        self.seq_len = opt['len']
+        self.block_num = opt['IMG_SCALE'] * opt['IMG_SCALE']
+        self.text_biaffine = Biaffine(self.seq_len, self.seq_len, self.seq_len).to(self.device)
+        self.text_mhatt = MHAtt(opt["hidden_size"], opt["hidden_size"]).to(self.device)
+
+        self.text_self_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
+
+        self.text_ffn = FFN(opt)
+
+        self.dropout1 = nn.Dropout(opt["dropout"])
+        self.norm1 = LayerNorm(opt["hidden_size"])
+
+        self.dropout2 = nn.Dropout(opt["dropout"])
+        self.norm2 = LayerNorm(opt["hidden_size"])
+
+        self.dropout3 = nn.Dropout(opt["dropout"])
+        self.norm3 = LayerNorm(opt["hidden_size"])
+
+    def forward(self, att_feature, text_feature):
+        text_feature = self.norm1(text_feature + self.dropout1(
+            self.text_biaffine(text_feature, att_feature)
+        ))  # (64, 49, 512) # (bs, 49, 768)
+
+        text_feature = self.norm2(text_feature + self.dropout2(
+            self.text_self_attn(v=text_feature, k=text_feature, q=text_feature)
+        ))
+
+        text_feature = self.norm3(text_feature + self.dropout3(
+            self.text_ffn(text_feature)
+        ))
+        return text_feature
 
 
 class Biaffine(nn.Module):
@@ -108,7 +142,6 @@ class Biaffine(nn.Module):
         bilinar_mapping = F.softmax(bilinar_mapping, dim=-1) / math.sqrt(d_k)
         bilinar_mapping = torch.bmm(bilinar_mapping, z)
         return bilinar_mapping
-
 
 
 if __name__ == '__main__':

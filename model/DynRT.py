@@ -50,11 +50,11 @@ class DynRT(torch.nn.Module):
         self.sigm = torch.nn.Sigmoid()
         self.fusion_layer = MultimodalFusionLayer(opt)
         self.classifier = torch.nn.Sequential(
-            torch.nn.Dropout(0.5),
+            torch.nn.Dropout(opt['dropout']),
             torch.nn.Linear(opt["output_size"],2)
         )
 
-    def bert_forward(self,x):
+    def bert_forward(self,x, mask):
         # 如果roberta模型，则走bert_forward，否则就走自己的模型结果
         if self.opt['model'] == 'model_roberta':
             # (bs, max_len, dim)
@@ -64,7 +64,7 @@ class DynRT(torch.nn.Module):
             for i in range(self.opt["roberta_layer"]):
                 bert_embed_text = self.bertl_text.encoder.layer[i](bert_embed_text)[0]
         else:
-            bert_embed_text = self.bertl_text(x)['last_hidden_state']
+            bert_embed_text = self.bertl_text(input_ids=x,attention_mask=mask)['last_hidden_state']
 
         return bert_embed_text
 
@@ -80,9 +80,9 @@ class DynRT(torch.nn.Module):
     # forward propagate input
     def forward(self, input):
         # 属性
-        bert_embed_att = self.bert_forward(input[self.input4])
+        bert_embed_att = self.bert_forward(input[self.input4], input[self.input5])
         # 文本
-        bert_embed_text = self.bert_forward(input[self.input1])
+        bert_embed_text = self.bert_forward(input[self.input1], input[self.input3])
         # 图像 (bs, grid_num, dim)
         img_feat = self.vit_forward(input[self.input2])
 

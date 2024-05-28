@@ -317,6 +317,14 @@ if __name__ == "__main__":
 
 ### 导出图片属性
 ~~~python
+   def prepare(self,input,opt):
+        self.id ={
+            "train":load_file(opt["data_path"] + "train_id"),
+            "test":load_file(opt["data_path"] + "test_id"),
+            "valid":load_file(opt["data_path"] + "valid_id")
+        }
+        self.transform_image_path = opt["transform_image"]
+        self.att = self.getExtractDict()
         # 添加图片id
         # 数据清洗，将id按照属性分为3份train, test, valid
         train_id = self.id['train']
@@ -326,7 +334,7 @@ if __name__ == "__main__":
         self.dump_att_file(test_id, mode='test')
         self.dump_att_file(valid_id, mode='valid')
 
-        result["att"] = self.att[int(self.id[mode][index])]
+        # result["att"] = self.att[int(self.id[mode][index])]
 
     def dump_att_file(self, id, mode):
         att_list = []
@@ -336,13 +344,119 @@ if __name__ == "__main__":
             att = self.att[int(id[i])]
             att_list.append(att)
             att_dict[int(id[i])] = att
-        with open('/Users/rayss/pythonProjects/DynRT/input/prepared_clean/att/' + mode + '_att.txt', 'w') as f:
+        with open('/Users/rayss/pythonProjects/DynRT/input/prepared/att/' + mode + '_att.txt', 'w') as f:
             # 使用循环遍历列表中的元素，并将其写入文件中
             for item in att_list:
                 f.write(str(item))  # 写入每个元素，并在其后添加换行符
                 f.write('\n')
-        with open('/Users/rayss/pythonProjects/DynRT/input/prepared_clean/att/' + mode + '_att_dict.json', 'w') as f:
+        with open('/Users/rayss/pythonProjects/DynRT/input/prepared/att/' + mode + '_att_dict.json', 'w') as f:
             json.dump(att_dict, f)
             f.write('\n')
+    def getExtractDict(self):
+        file = open("/Users/rayss/pythonProjects/DynRT/input/prepared/extract_all")
+        dic = {}
+        for line in file:
+            ls = eval(line)
+            dic[int(ls[0])] = ls[1:]
+        return dic
+
+~~~
+
+### shuffle dataset
+
+~~~python
+# 读到所有的id,text,labels
+import json
+import pickle
+import random
+
+
+def load_file(filename):
+    with open(filename, 'rb') as filehandle:
+        ret = pickle.load(filehandle)
+        return ret
+def load_att_file(att_file_path):
+    att_list = []
+    with open(att_file_path) as f:
+        for att in f:
+            att = eval(att)
+            att_list.append(att)
+    return att_list
+
+
+att = load_att_file("/Users/rayss/pythonProjects/DynRT/input/prepared/att/train_att.txt")
+att = att + load_att_file("/Users/rayss/pythonProjects/DynRT/input/prepared/att/valid_att.txt")
+att = att + load_att_file("/Users/rayss/pythonProjects/DynRT/input/prepared/att/test_att.txt")
+
+id = load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/train_id")
+id = id + load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/valid_id")
+id = id + load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/test_id")
+
+
+text = load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/train_text")
+text = text + load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/valid_text")
+text = text + load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/test_text")
+
+labels = load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/train_labels")
+labels = labels + load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/valid_labels")
+labels = labels + load_file("/Users/rayss/pythonProjects/DynRT/input/prepared/test_labels")
+
+# 创建一个列表，其中每个元素都是一个元组，元组包含了来自三个列表的对应元素
+combined_list = list(zip(id, text, labels, att))
+
+# 打乱combined_list
+random.shuffle(combined_list)
+
+# 将打乱的combined_list解包回三个新的列表
+id, text, labels, att = zip(*combined_list)
+
+# 将这些新的列表转换为列表（因为zip返回的是迭代器）
+id = list(id)
+text = list(text)
+labels = list(labels)
+att = list(att)
+
+length = len(id)
+train_id = id[:19816]
+valid_id = id[19816:22226]
+test_id = id[22226:]
+
+
+train_text = text[:19816]
+valid_text = text[19816:22226]
+test_text = text[22226:]
+
+train_labels = labels[:19816]
+valid_labels = labels[19816:22226]
+test_labels = labels[22226:]
+
+train_att = att[:19816]
+valid_att = att[19816:22226]
+test_att = att[22226:]
+
+pickle.dump(train_id,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/train_id", "wb"))
+pickle.dump(valid_id,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/valid_id", "wb"))
+pickle.dump(test_id,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/test_id", "wb"))
+
+pickle.dump(train_text,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/train_text", "wb"))
+pickle.dump(valid_text,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/valid_text", "wb"))
+pickle.dump(test_text,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/test_text", "wb"))
+
+pickle.dump(train_labels,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/train_labels", "wb"))
+pickle.dump(valid_labels,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/valid_labels", "wb"))
+pickle.dump(test_labels,open("/Users/rayss/pythonProjects/DynRT/input/shuffle/test_labels", "wb"))
+
+
+
+def dump_att_file(att, mode):
+    with open('/Users/rayss/pythonProjects/DynRT/input/shuffle/att/' + mode + '_att.txt', 'w') as f:
+        # 使用循环遍历列表中的元素，并将其写入文件中
+        for item in att:
+            f.write(str(item))  # 写入每个元素，并在其后添加换行符
+            f.write('\n')
+dump_att_file(train_att, "train")
+dump_att_file(valid_att, "valid")
+dump_att_file(test_att, "test")
+
 
 ~~~
