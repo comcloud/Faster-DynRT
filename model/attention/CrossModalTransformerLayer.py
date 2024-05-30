@@ -13,6 +13,7 @@ class CrossModalTransformerLayer(torch.nn.Module):
         self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
         self.seq_len = opt['len']
         self.block_num = opt['IMG_SCALE'] * opt['IMG_SCALE']
+        self.fc = nn.Linear(self.seq_len+self.block_num, self.seq_len)
         # batch_size, text_seq_len, text_hidden_dim, image_block_num, image_hidden_dim, use_source
         self.cross_attention = GuideAttention(batch_size, self.seq_len, opt["hidden_size"], self.block_num, opt["hidden_size"],
                                               use_source=2).to(self.device)

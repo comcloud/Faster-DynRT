@@ -439,7 +439,7 @@ class DynRT_ED(nn.Module):
             opt_copy["orders"] = len(opt["ORDERS"])-i
             opt_list.append(copy.deepcopy(opt_copy))
         self.dec_list = nn.ModuleList([multiTRAR_SA_block(opt_list[-(i+1)]) for i in range(opt["layer"])])
-        # self.mask_txt_linear = nn.Linear(opt["len"], opt["IMG_SCALE"] * opt["IMG_SCALE"])
+        self.mask_txt_linear = nn.Linear(opt["len"], opt["IMG_SCALE"] * opt["IMG_SCALE"])
 
     def forward(self, x, y, x_mask, y_mask):
         # x text (bs, max_len, dim) y img (bs, gird_num, dim) x_mask (bs, 1, 1, max_len) y_mask (bs, 1, 1, grid_num)

@@ -247,15 +247,15 @@ class onerun:
         }
 
     def gen_heat_map_prepare(self):
-        state_dict = torch.load("./checkpoint/model_best.pth.tar", map_location="cpu")
+        state_dict = torch.load("./checkpoint/new_model_best.pth.tar", map_location="cpu")
         self.model.load_state_dict(state_dict['model'])
 
 
     def gen_image_heat_map(self):
         # target_layers = [self.model.vit.blocks[-1].norm1]
-        target_layers = [self.model.guide_attention_layer.cross_guide.strategy.do_guide.image_norm]
+        target_layers = [self.model.cross_modal_transformer_layer.cross_attention.strategy.do_guide.image_norm]
         # load image
-        image_root = r"/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector/"
+        image_root = r"/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector2/"
         files = os.listdir(image_root)
         train_ids = load_file("input/prepared_clean/train_id")
         valid_ids = load_file("input/prepared_clean/valid_id")
@@ -264,14 +264,22 @@ class onerun:
         valid_texts = load_file("input/prepared_clean/valid_text")
         test_texts = load_file("input/prepared_clean/test_text")
 
-        # for i in range(600, 801):
-        for i in range(len(files)):
+        def get_att(att_file_path="/Users/rayss/pythonProjects/DynRT/checkpoint/extract_all", mould='A photo containing the {att_0}, {att_1}, {att_2}, {att_3} and {att_4}'):
+            att_mould_dict = {}
+            with open(att_file_path) as f:
+                for att in f:
+                    att = eval(att)
+                    att_mould_dict[int(att[0])] = mould.format(att_0=att[1], att_1=att[2], att_2=att[3], att_3=att[4], att_4=att[5])
+            return att_mould_dict
+
+        for i in range(1101, 1301):
+        # for i in range(len(files)):
             img_path = image_root + files[i]
             self.do_gen_image_heat_map(target_layers, img_path, files[i], train_ids, train_texts, valid_ids, valid_texts, test_ids,
-                                       test_texts, self.tokenizer_roberta)
+                                       test_texts, get_att(), self.tokenizer_roberta)
 
     def do_gen_image_heat_map(self, target_layers, img_path, file_name, train_ids, train_texts, valid_ids, valid_texts, test_ids,
-                              test_texts, tokenizer_roberta):
+                              test_texts, att_dict, tokenizer_roberta):
         # model = vit_base_patch16_224()
         # 链接: https://pan.baidu.com/s/1zqb08naP0RPqqfSXfkB2EA  密码: eu9f
         # weights_path = "./vit_base_patch16_224.pth"
@@ -294,13 +302,9 @@ class onerun:
                 text = test_texts[idx]
         except:
             return
-        text_tensor = tokenizer_roberta(text)['input_ids']
-        if len(text_tensor) > 100:
-            text_tensor = text_tensor[0:100]
-        text_mask = torch.BoolTensor(
-            [0] * len(text_tensor) + [1] * (100 - len(text_tensor))).unsqueeze(0)
-        text_tensor += [1] * (100 - len(text_tensor))
-        text_tensor = torch.tensor(text_tensor).unsqueeze(0)
+        text_mask, text_tensor = self.get_text_tensor(text, tokenizer_roberta)
+        att_mask, att_tensor = self.get_text_tensor(att_dict[int(text_id)], tokenizer_roberta)
+
         data_transform = transforms.Compose([transforms.ToTensor(),
                                              transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
         assert os.path.exists(img_path), "file: '{}' dose not exist.".format(img_path)
@@ -316,11 +320,27 @@ class onerun:
                       target_layers=target_layers,
                       use_cuda=False,
                       reshape_transform=ReshapeTransform(self.model))
-        grayscale_cam = cam(inputs={"text_mask": text_mask, "text": text_tensor, "img": img_tensor})
-        grayscale_cam = grayscale_cam[0, :]
-        visualization = show_cam_on_image(img / 255., grayscale_cam, use_rgb=True)
-        plt.imshow(visualization)
-        plt.savefig("/Users/rayss/pythonProjects/DynRT/checkpoint/heat_map/" + file_name, dpi=300)
+        try:
+            grayscale_cam = cam(
+                inputs={"text_mask": text_mask, "text": text_tensor, "att_mask": att_mask, "att": att_tensor,
+                        "img": img_tensor})
+            grayscale_cam = grayscale_cam[0, :]
+            visualization = show_cam_on_image(img / 255., grayscale_cam, use_rgb=True)
+            plt.imshow(visualization)
+            # plt.savefig("/Users/rayss/Public/读研经历/论文/ironyDetection/ACM英文论文/heat_map/" + file_name, dpi=300)
+            plt.savefig("/Users/rayss/pythonProjects/DynRT/checkpoint/new/heat_map/" + file_name, dpi=300)
+        except:
+            pass
+
+    def get_text_tensor(self, text, tokenizer_roberta):
+        text_tensor = tokenizer_roberta(text)['input_ids']
+        if len(text_tensor) > 100:
+            text_tensor = text_tensor[0:100]
+        text_mask = torch.BoolTensor(
+            [0] * len(text_tensor) + [1] * (100 - len(text_tensor))).unsqueeze(0)
+        text_tensor += [1] * (100 - len(text_tensor))
+        text_tensor = torch.tensor(text_tensor).unsqueeze(0)
+        return text_mask, text_tensor
 
     def eval(self,mode, epoch=None):
         self.model.eval()

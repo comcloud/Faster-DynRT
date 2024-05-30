@@ -33,6 +33,8 @@ class cls_layer_both(nn.Module):
         super(cls_layer_both, self).__init__()
         self.proj_norm = LayerNorm(input_dim)
         self.proj = nn.Linear(input_dim, output_dim)
+        self.a = nn.Parameter(torch.tensor(0.45), requires_grad=True)
+        self.b = nn.Parameter(torch.tensor(0.9), requires_grad=True)
         
     def forward(self, lang_feat, img_feat):
         # proj_feat = 1 / 2 * lang_feat + 1 / 2 * img_feat

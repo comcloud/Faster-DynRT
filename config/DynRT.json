@@ -63,14 +63,13 @@
             "input3": "text_mask",
             "input4": "att",
             "input5": "att_mask",
-            "layer": 5,
+            "layer": 4,
             "tau_max": 10,
             "ORDERS": [
                 0,
                 1,
                 2,
-                3,
-                4
+                3
             ],
             "IMG_SCALE": 7,
             "dropout": 0.5,
@@ -83,7 +82,7 @@
             "glimpses": 1,
             "mlp_size": 768,
             "output_size": 768,
-            "orders": 5,
+            "orders": 4,
             "pooling": "avg",
             "classifier": "both",
             "model": "model_roberta",
