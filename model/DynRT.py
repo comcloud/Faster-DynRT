@@ -102,7 +102,7 @@ class DynRT(torch.nn.Module):
         out = self.sigm(out)
         del bert_embed_text, img_feat
 
-        return out, text_incongruity, image_incongruity
+        return out, text_incongruity, image_incongruity, bert_embed_att
 
 
 def build_DynRT(opt,requirements):

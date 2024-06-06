@@ -135,7 +135,7 @@ class GradCAM:
             img_tensor = img_tensor.cuda()
 
         # 正向传播得到网络输出logits(未经过softmax)
-        output, _, _ = self.activations_and_grads(inputs)
+        output, _, _, _ = self.activations_and_grads(inputs)
         if isinstance(target_category, int):
             target_category = [target_category] * img_tensor.size(0)
 

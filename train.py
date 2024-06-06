@@ -1,9 +1,6 @@
-import os
 import sys
 from math import ceil
 
-import cv2
-import requests
 import json
 import logging
 import time
@@ -11,12 +8,7 @@ import random
 import torch
 import os
 import numpy
-from PIL import Image
-from matplotlib import pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
-from torchvision import transforms
 
-import data_centor
 import input
 import model
 from sklearn.metrics import confusion_matrix,f1_score,precision_score,recall_score, accuracy_score
@@ -25,9 +17,7 @@ import datetime
 import pickle
 import tensorboard_logger as tb_logger
 
-from image_attention_visual import img_attention_visualization
-from text_attention_visual import text_attention_visualization
-from util import center_crop_img, GradCAM, show_cam_on_image
+import visual
 from utils import AverageMeter, LogCollector
 import torch.nn as nn
 import numpy as np
@@ -38,30 +28,7 @@ def load_file(filename):
         ret = pickle.load(filehandle)
         return ret
 
-class ReshapeTransform:
-    def __init__(self, model, input_size=(224,224), patch_size=(32,32)):
-        # input_size = model.patch_embed.img_size
-        # patch_size = model.patch_embed.patch_size
-        self.h = input_size[0] // patch_size[0]
-        self.w = input_size[1] // patch_size[1]
 
-    def __call__(self, x):
-        # remove cls token and reshape
-        # [batch_size, num_tokens, token_dim]
-        # result = x[:, 1:, :].reshape(x.size(0),
-        #                              self.h,
-        #                              self.w,
-        #                              x.size(2))
-        result = x.reshape(x.size(0),
-                           self.h,
-                           self.w,
-                           x.size(2))
-
-        # Bring the channels to the first dimension,
-        # like in CNNs.
-        # [batch_size, H, W, C] -> [batch, C, H, W]
-        result = result.permute(0, 3, 1, 2)
-        return result
 class onerun:
 
     def __init__(self,fname):
@@ -88,6 +55,7 @@ class onerun:
         if len(self.device_ids) > 1:
             self.model = nn.DataParallel(self.model, device_ids=self.device_ids)
         for epoch in range(1,self.total_epoch+1):
+            test = self.eval("test", epoch=epoch)
             train=self.train(epoch)
             tb_logger.log_value('pre_train', train["precision_score"], step=epoch)
             tb_logger.log_value('recall_train', train["recall_score"], step=epoch)
@@ -185,11 +153,15 @@ class onerun:
         print(f'Trainable params: {Trainable_params}')
         print(f'Non-trainable params: {NonTrainable_params}')
 
+    def gen_heat_map_prepare(self):
+        state_dict = torch.load("./checkpoint/new_model_best.pth.tar", map_location="cpu")
+        self.model.load_state_dict(state_dict['model'])
+
     def train(self,epoch):
         # 生成热力图准备工作
         self.gen_heat_map_prepare()
         # 生成图像热力图
-        self.gen_image_heat_map()
+        visual.gen_image_heat_map(self.model, self.tokenizer_roberta)
         self.model.train()
         self.log.info('Epoch {}/{}'.format(epoch, self.total_epoch))
         running_loss = 0.0
@@ -206,7 +178,7 @@ class onerun:
             for key in batch:
                 input[key]=batch[key].to(self.device)
             
-            scores, lang_feat, img_feat = self.model(input)
+            scores, lang_feat, img_feat, bert_embed_att = self.model(input)
 
             loss = self.loss(scores, input["label"], lang_feat, img_feat)
 
@@ -246,104 +218,11 @@ class onerun:
             "accuracy":epoch_acc
         }
 
-    def gen_heat_map_prepare(self):
-        state_dict = torch.load("./checkpoint/new_model_best.pth.tar", map_location="cpu")
-        self.model.load_state_dict(state_dict['model'])
 
-
-    def gen_image_heat_map(self):
-        # target_layers = [self.model.vit.blocks[-1].norm1]
-        target_layers = [self.model.cross_modal_transformer_layer.cross_attention.strategy.do_guide.image_norm]
-        # load image
-        image_root = r"/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector2/"
-        files = os.listdir(image_root)
-        train_ids = load_file("input/prepared_clean/train_id")
-        valid_ids = load_file("input/prepared_clean/valid_id")
-        test_ids = load_file("input/prepared_clean/test_id")
-        train_texts = load_file("input/prepared_clean/train_text")
-        valid_texts = load_file("input/prepared_clean/valid_text")
-        test_texts = load_file("input/prepared_clean/test_text")
-
-        def get_att(att_file_path="/Users/rayss/pythonProjects/DynRT/checkpoint/extract_all", mould='A photo containing the {att_0}, {att_1}, {att_2}, {att_3} and {att_4}'):
-            att_mould_dict = {}
-            with open(att_file_path) as f:
-                for att in f:
-                    att = eval(att)
-                    att_mould_dict[int(att[0])] = mould.format(att_0=att[1], att_1=att[2], att_2=att[3], att_3=att[4], att_4=att[5])
-            return att_mould_dict
-
-        for i in range(1101, 1301):
-        # for i in range(len(files)):
-            img_path = image_root + files[i]
-            self.do_gen_image_heat_map(target_layers, img_path, files[i], train_ids, train_texts, valid_ids, valid_texts, test_ids,
-                                       test_texts, get_att(), self.tokenizer_roberta)
-
-    def do_gen_image_heat_map(self, target_layers, img_path, file_name, train_ids, train_texts, valid_ids, valid_texts, test_ids,
-                              test_texts, att_dict, tokenizer_roberta):
-        # model = vit_base_patch16_224()
-        # 链接: https://pan.baidu.com/s/1zqb08naP0RPqqfSXfkB2EA  密码: eu9f
-        # weights_path = "./vit_base_patch16_224.pth"
-        # model.load_state_dict(torch.load(weights_path, map_location="cpu"))
-        # Since the final classification is done on the class token computed in the last attention block,
-        # the output will not be affected by the 14x14 channels in the last layer.
-        # The gradient of the output with respect to them, will be 0!
-        # We should chose any layer before the final attention block.
-        # 读取文本：截断file_name获取text_id，从train_id,test_id,valid_id中查询，得到其中的位置索引；根据此索引从对应的text中获取
-        text_id = file_name.split('.')[0]
-        try:
-            if text_id in train_ids:
-                idx = train_ids.index(text_id)
-                text = train_texts[idx]
-            elif text_id in valid_ids:
-                idx = valid_ids.index(text_id)
-                text = valid_texts[idx]
-            else:
-                idx = test_ids.index(text_id)
-                text = test_texts[idx]
-        except:
-            return
-        text_mask, text_tensor = self.get_text_tensor(text, tokenizer_roberta)
-        att_mask, att_tensor = self.get_text_tensor(att_dict[int(text_id)], tokenizer_roberta)
-
-        data_transform = transforms.Compose([transforms.ToTensor(),
-                                             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
-        assert os.path.exists(img_path), "file: '{}' dose not exist.".format(img_path)
-        img = Image.open(img_path).convert('RGB')
-        img = np.array(img, dtype=np.uint8)
-        img = center_crop_img(img, 224)
-        # [C, H, W]
-        img_tensor = data_transform(img)
-        # expand batch dimension
-        # [C, H, W] -> [N, C, H, W]
-        img_tensor = torch.unsqueeze(img_tensor, dim=0)
-        cam = GradCAM(model=self.model,
-                      target_layers=target_layers,
-                      use_cuda=False,
-                      reshape_transform=ReshapeTransform(self.model))
-        try:
-            grayscale_cam = cam(
-                inputs={"text_mask": text_mask, "text": text_tensor, "att_mask": att_mask, "att": att_tensor,
-                        "img": img_tensor})
-            grayscale_cam = grayscale_cam[0, :]
-            visualization = show_cam_on_image(img / 255., grayscale_cam, use_rgb=True)
-            plt.imshow(visualization)
-            # plt.savefig("/Users/rayss/Public/读研经历/论文/ironyDetection/ACM英文论文/heat_map/" + file_name, dpi=300)
-            plt.savefig("/Users/rayss/pythonProjects/DynRT/checkpoint/new/heat_map/" + file_name, dpi=300)
-        except:
-            pass
-
-    def get_text_tensor(self, text, tokenizer_roberta):
-        text_tensor = tokenizer_roberta(text)['input_ids']
-        if len(text_tensor) > 100:
-            text_tensor = text_tensor[0:100]
-        text_mask = torch.BoolTensor(
-            [0] * len(text_tensor) + [1] * (100 - len(text_tensor))).unsqueeze(0)
-        text_tensor += [1] * (100 - len(text_tensor))
-        text_tensor = torch.tensor(text_tensor).unsqueeze(0)
-        return text_mask, text_tensor
 
     def eval(self,mode, epoch=None):
         self.model.eval()
+        self.gen_heat_map_prepare()
         running_loss = 0.0
         running_corrects = 0.0
 
@@ -352,59 +231,39 @@ class onerun:
         scores_list = []
 
         with torch.no_grad():
+            all_feature = []
+            all_labels = []
             for i, batch in enumerate(self.dataloaders[mode]):
-                if epoch == 3:
-                    print("注意力可视化图片生成中....")
-                    '''
-                    1. 读取所有id和文本
-                    2. 生成文本热力图
-                    3. 遍历所有id，获取对应图片npy
-                    4. 生成图片热力图
-                    '''
+                if i > 20:
+                    input = {}
+                    for key in batch:
+                        input[key] = batch[key].to(self.device)
+                    scores, lang_feat, img_feat, bert_embed_att = self.model(input)
 
-                    test_id = load_file('input/prepared/test_id')
-                    test_text = load_file('input/prepared/test_text')
-                    # 对文本和图片进行编码
-                    bert_embed_text = self.model.bertl_text.embeddings(input_ids=batch['text'])
-                    bert_text = self.model.bertl_text.encoder.layer[i](bert_embed_text)[0]
-                    bert_embed_text = bert_text
-                    # (bs, grid_num, dim)
-                    img_feat = self.model.vit_forward(batch['img'])
+                    # 散点图
+                    all_feature.append(torch.concat((lang_feat, img_feat, bert_embed_att), dim=1).numpy())
+                    all_labels.append(input["label"].numpy())
+                    if i == 40:
+                        break
+                # input={}
+                # for key in batch:
+                #     input[key]=batch[key].to(self.device)
+                # scores, lang_feat, img_feat, bert_embed_att = self.model(input)
+                #
+                # loss = self.loss(scores, input["label"], lang_feat, img_feat)
+                #
+                # running_loss += loss.item() * input["label"].size(0)
+                #
+                # _, preds = scores.data.max(1)
+                #
+                # running_corrects += (preds == input["label"]).sum()
+                # y_pred.extend(preds.tolist())
+                # scores_list.extend(_.tolist())
+                # y_true.extend(input["label"].tolist())
 
-                    # 获取权重矩阵
-                    guide_attention_layer = self.model.guide_attention_layer.strategy.do_guide
-                    text_attention_weight = guide_attention_layer.text_sparse_attention.attention_weight(
-                        bert_embed_text, img_feat)
-                    image_attention_weight = guide_attention_layer.image_sparse_attention.attention_weight(
-                        bert_embed_text, img_feat)
-                    # 遍历当前这里的id
-                    # for idx in range(i * self.opt['dataloader']['batch_size'], batch['text'].size(0)):
-                    # 遍历权重矩阵，计算每个的图
-                    for idx in range(text_attention_weight.size(0)):
-                        id = test_id[i * self.opt['dataloader']['batch_size'] + idx]
-                        text = test_text[i * self.opt['dataloader']['batch_size'] + idx]
-                        img_attention_visualization(id, image_attention_weight[idx].detach().numpy())
-                        text_attention_visualization(id, text, text_attention_weight[idx])
-
-                    print("注意力可视化图片生成完毕")
-
-                input={}
-                for key in batch:
-                    input[key]=batch[key].to(self.device)
-                scores, lang_feat, img_feat = self.model(input)
-
-                loss = self.loss(scores, input["label"], lang_feat, img_feat)
-                
-                running_loss += loss.item() * input["label"].size(0)
-                
-                _, preds = scores.data.max(1)
-
-                running_corrects += (preds == input["label"]).sum()
-                y_pred.extend(preds.tolist())
-                scores_list.extend(_.tolist())
-                y_true.extend(input["label"].tolist())
-
-                del input, scores
+                # del input, scores
+            visual.visualize_and_save_tsne_2d_withgate(all_feature, all_labels,
+                                                       '/Users/rayss/pythonProjects/DynRT/checkpoint/img.png')
 
         epoch_loss = running_loss / (len(self.dataloaders[mode]) * self.batch_size)
 
@@ -441,7 +300,7 @@ class onerun:
             "y_pred":y_pred
 
         }
-    
+
     
 
     def eval_test(self,mode):

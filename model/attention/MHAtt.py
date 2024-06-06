@@ -19,8 +19,10 @@ class MHAtt(nn.Module):
 
         self.dropout = nn.Dropout(0.5)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v=None, mask=None):
         n_batches = q.size(0)
+        if v is None:
+            v = k
 
         v = self.linear_v(v).view(
             n_batches,
