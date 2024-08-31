@@ -113,7 +113,7 @@ def build_DynRT(opt,requirements):
         opt["vitmodel"] = "vit_base_patch32_224"
     # vit = timm.create_model(opt["vitmodel"], pretrained=True)
     pretrained_cfg = timm.models.create_model(opt["vitmodel"]).default_cfg
-    pretrained_cfg['file'] = r'/Users/rayss/pythonProjects/DynRT/model/vit/B_32-i21k-300ep-lr_0.001-aug_medium1-wd_0.03-do_0.0-sd_0.0--imagenet2012-steps_20k-lr_0.03-res_224.npz'
+    pretrained_cfg['file'] = r'/Users/rayss/pythonProjects/pretrained_model/vit/B_32-i21k-300ep-lr_0.001-aug_medium1-wd_0.03-do_0.0-sd_0.0--imagenet2012-steps_20k-lr_0.03-res_224.npz'
     vit = timm.models.create_model(opt["vitmodel"], pretrained=True, pretrained_cfg=pretrained_cfg)
 
     return DynRT(bertl_text, vit, opt,requirements['batch_size'])

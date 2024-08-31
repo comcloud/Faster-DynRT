@@ -41,7 +41,7 @@ class loader_img:
         # 如果文件不存在，则直接进行新建
         # 图片所在目录
         file_path = '/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector2/' + self.id[mode][index] + ".jpg"
-        new_file_path = "/Users/rayss/pythonProjects/DynRT/input/image_tensor/" + self.id[mode][index] + ".npy"
+        new_file_path = "/Users/rayss/pythonProjects/DynRT_bridge/input/image_tensor/" + self.id[mode][index] + ".npy"
         if not os.path.exists(new_file_path):
             # 从文件加载图像数据
             image = Image.open(file_path)

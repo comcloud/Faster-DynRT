@@ -15,16 +15,16 @@
         "dataloader": {
             "requires": {
                 "tokenizer_roberta": {
-                    "path": "./model/roberta"
+                    "path": "/Users/rayss/pythonProjects/pretrained_model/roberta"
                 },
                 "tokenizer_albert": {
-                    "path": "./model/albert"
+                    "path": "/Users/rayss/pythonProjects/pretrained_model/albert"
                 },
                 "tokenizer_bert": {
-                    "path": "./model/bert"
+                    "path": "/Users/rayss/pythonProjects/pretrained_model/bert"
                 },
                 "tokenizer_xlnet": {
-                    "path": "./model/xlnet"
+                    "path": "/Users/rayss/pythonProjects/pretrained_model/xlnet"
                 },
                 "tokenizer": "tokenizer_roberta"
             },
@@ -86,10 +86,10 @@
             "pooling": "avg",
             "classifier": "both",
             "model": "model_roberta",
-            "model_roberta": "./model/roberta",
-            "model_albert": "./model/albert",
-            "model_bert": "./model/bert",
-            "model_xlnet": "./model/xlnet",
+            "model_roberta": "/Users/rayss/pythonProjects/pretrained_model/roberta",
+            "model_albert": "/Users/rayss/pythonProjects/pretrained_model/albert",
+            "model_bert": "./Users/rayss/pythonProjects/pretrained_model/bert",
+            "model_xlnet": "/Users/rayss/pythonProjects/pretrained_model/xlnet",
             "roberta_layer": 1,
             "vitmodel": "vit_base_patch32_224",
             "finetune": false

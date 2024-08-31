@@ -8,6 +8,7 @@ import random
 import torch
 import os
 import numpy
+from torch.cuda.amp import GradScaler, autocast
 
 import input
 import model
@@ -225,36 +226,53 @@ class onerun:
         y_pred = []
 
         self.model.zero_grad()
+        # Creates a GradScaler once at the beginning of training.
+        scaler = GradScaler()
         
         for i, batch in enumerate(self.dataloaders["train"]):
                 
             input={}
             for key in batch:
                 input[key]=batch[key].to(self.device)
-            
-            scores, lang_feat, img_feat, bert_embed_att = self.model(input)
 
-            loss = self.loss(scores, input["label"], lang_feat, img_feat)
-            # 计算对比损失
-            text_img_contrastive_loss = self.text_img_contrastive_loss(img_feat, lang_feat)
-            img_text_contrastive_loss = self.img_text_contrastive_loss(lang_feat, img_feat)
+            with autocast():
+                scores, lang_feat, img_feat, bert_embed_att = self.model(input)
 
-            loss = loss + self.ma * img_text_contrastive_loss + (1 - self.ma) * text_img_contrastive_loss
+                loss = self.loss(scores, input["label"], lang_feat, img_feat)
+                # 计算对比损失
+                # text_img_contrastive_loss = self.text_img_contrastive_loss(img_feat, lang_feat)
+                # img_text_contrastive_loss = self.img_text_contrastive_loss(lang_feat, img_feat)
 
-            # sarcasm_list = []
-            # non_sarcasm_list = []
-            # for i in range(len(scores)):
-            #     if scores[i, 0] > scores[i, 1]:  # 如果讽刺的概率大于非讽刺的概率
-            #         sarcasm_list.append(i)
-            #     else:  # 如果非讽刺的概率大于讽刺的概率
-            #         non_sarcasm_list.append(i)
-            # q_n_s = torch.index_select(lang_feat, 0, torch.tensor(non_sarcasm_list))
-            # p_n_s = torch.index_select(img_feat, 0, torch.tensor(non_sarcasm_list))
-            # t_i_kl_loss = self.text_kl_loss(q_n_s, p_n_s)
-            # i_t_kl_loss = self.img_kl_loss(p_n_s, q_n_s)
-            # loss = loss + t_i_kl_loss + i_t_kl_loss
+                # loss = loss + self.ma * img_text_contrastive_loss + (1 - self.ma) * text_img_contrastive_loss
 
-            loss.backward()
+                # sarcasm_list = []
+                # non_sarcasm_list = []
+                # for i in range(len(scores)):
+                #     if scores[i, 0] > scores[i, 1]:  # 如果讽刺的概率大于非讽刺的概率
+                #         sarcasm_list.append(i)
+                #     else:  # 如果非讽刺的概率大于讽刺的概率
+                #         non_sarcasm_list.append(i)
+                # q_n_s = torch.index_select(lang_feat, 0, torch.tensor(non_sarcasm_list))
+                # p_n_s = torch.index_select(img_feat, 0, torch.tensor(non_sarcasm_list))
+                # t_i_kl_loss = self.text_kl_loss(q_n_s, p_n_s)
+                # i_t_kl_loss = self.img_kl_loss(p_n_s, q_n_s)
+                # loss = loss + t_i_kl_loss + i_t_kl_loss
+
+                # loss.backward()
+
+            # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
+            # Backward passes under autocast are not recommended.
+            # Backward ops run in the same dtype autocast chose for corresponding forward ops.
+            scaler.scale(loss).backward()
+
+            # scaler.step() first unscales the gradients of the optimizer's assigned params.
+            # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
+            # otherwise, optimizer.step() is skipped.
+            scaler.step(self.optimizer)
+
+            # Updates the scale for next iteration.
+            scaler.update()
+
             # 计算热力图
             # self.gen_text_heat_map(i, input, bert_embed_text.grad)
 
