@@ -20,6 +20,10 @@ class BridgeInfoLayer(torch.nn.Module):
         self.image_biaff_trans = ImageBiaffineTransformer(opt)
         self.text_biaff_trans = TextBiaffineTransformer(opt)
 
+        # 消融实验
+        self.transformer_structure = TransformerStructure(opt)
+        self.cross_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
+
     def forward(self, text_feature, text_mask, att_feature, att_mask, image_feature):
         # 文属
         text_feature, _ = self.dynamic_net(
@@ -28,9 +32,12 @@ class BridgeInfoLayer(torch.nn.Module):
             text_mask.unsqueeze(1).unsqueeze(2),
             att_mask.unsqueeze(1).unsqueeze(2)
         )
+        # self.transformer_structure(self.cross_attn, text_feature, att_feature)
         # text_feature = self.text_biaff_trans(att_feature, text_feature)
 
+        # 图属
         image_feature = self.image_biaff_trans(att_feature, image_feature)
+        # self.transformer_structure(self.cross_attn, image_feature, att_feature)
 
         return text_feature, image_feature
 
@@ -42,33 +49,10 @@ class ImageBiaffineTransformer(nn.Module):
         self.seq_len = opt['len']
         self.block_num = opt['IMG_SCALE'] * opt['IMG_SCALE']
         self.image_biaffine = Biaffine(self.block_num, self.seq_len, self.block_num).to(self.device)
-
-        self.image_self_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
-
-        self.image_ffn = FFN(opt)
-
-        self.dropout1 = nn.Dropout(opt["dropout"])
-        self.norm1 = LayerNorm(opt["hidden_size"])
-
-        self.dropout2 = nn.Dropout(opt["dropout"])
-        self.norm2 = LayerNorm(opt["hidden_size"])
-
-        self.dropout3 = nn.Dropout(opt["dropout"])
-        self.norm3 = LayerNorm(opt["hidden_size"])
+        self.transformer_structure = TransformerStructure(opt)
 
     def forward(self, att_feature, image_feature):
-        image_feature = self.norm1(image_feature + self.dropout1(
-            self.image_biaffine(image_feature, att_feature)
-        ))  # (64, 49, 512) # (bs, 49, 768)
-
-        image_feature = self.norm2(image_feature + self.dropout2(
-            self.image_self_attn(v=image_feature, k=image_feature, q=image_feature)
-        ))
-
-        image_feature = self.norm3(image_feature + self.dropout3(
-            self.image_ffn(image_feature)
-        ))
-        return image_feature
+        return self.transformer_structure(self.image_biaffine, image_feature, att_feature)
 
 
 class TextBiaffineTransformer(nn.Module):
@@ -76,13 +60,20 @@ class TextBiaffineTransformer(nn.Module):
         super(TextBiaffineTransformer, self).__init__()
         self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
         self.seq_len = opt['len']
-        self.block_num = opt['IMG_SCALE'] * opt['IMG_SCALE']
         self.text_biaffine = Biaffine(self.seq_len, self.seq_len, self.seq_len).to(self.device)
-        self.text_mhatt = MHAtt(opt["hidden_size"], opt["hidden_size"]).to(self.device)
+        self.transformer_structure = TransformerStructure(opt)
 
-        self.text_self_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
+    def forward(self, att_feature, text_feature):
+        return self.transformer_structure(self.text_biaffine, text_feature, att_feature)
 
-        self.text_ffn = FFN(opt)
+
+class TransformerStructure(nn.Module):
+    def __init__(self, opt):
+        super(TransformerStructure, self).__init__()
+
+        self.self_attn = MHAtt(opt["hidden_size"], opt["hidden_size"])
+
+        self.ffn = FFN(opt)
 
         self.dropout1 = nn.Dropout(opt["dropout"])
         self.norm1 = LayerNorm(opt["hidden_size"])
@@ -93,19 +84,19 @@ class TextBiaffineTransformer(nn.Module):
         self.dropout3 = nn.Dropout(opt["dropout"])
         self.norm3 = LayerNorm(opt["hidden_size"])
 
-    def forward(self, att_feature, text_feature):
-        text_feature = self.norm1(text_feature + self.dropout1(
-            self.text_biaffine(text_feature, att_feature)
+    def forward(self, attn, q_feature, k_v_feature=None):
+        q_feature = self.norm1(q_feature + self.dropout1(
+            attn(q_feature, k_v_feature if k_v_feature is not None else q_feature)
         ))  # (64, 49, 512) # (bs, 49, 768)
 
-        text_feature = self.norm2(text_feature + self.dropout2(
-            self.text_self_attn(v=text_feature, k=text_feature, q=text_feature)
+        q_feature = self.norm2(q_feature + self.dropout2(
+            self.self_attn(v=q_feature, k=q_feature, q=q_feature)
         ))
 
-        text_feature = self.norm3(text_feature + self.dropout3(
-            self.text_ffn(text_feature)
+        q_feature = self.norm3(q_feature + self.dropout3(
+            self.ffn(q_feature)
         ))
-        return text_feature
+        return q_feature
 
 
 class Biaffine(nn.Module):
@@ -153,6 +144,11 @@ if __name__ == '__main__':
     # res = biaffine(i_f, a_f)
     # print(res.size())
     opt = {
+        "pooling": "avg",
+        "routing": 'hard',
+        "layer": 2,
+        "ORDERS": [0, 1],
+        "tau_max": 10,
         "len": 100,
         "IMG_SCALE": 7,
         "hidden_size": 768,

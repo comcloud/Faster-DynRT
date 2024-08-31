@@ -20,6 +20,7 @@ import tensorboard_logger as tb_logger
 import visual
 from utils import AverageMeter, LogCollector
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -28,6 +29,59 @@ def load_file(filename):
         ret = pickle.load(filehandle)
         return ret
 
+class KLDivLoss(nn.Module):
+    def __init__(self, p_dim, q_dim):
+        super(KLDivLoss, self).__init__()
+        self.q_2_p = nn.Linear(q_dim, p_dim)
+
+
+    def forward(self, p, q):
+        q = self.q_2_p(q.transpose(2, 1)).transpose(2, 1)
+        p = F.softmax(p, dim=-1)
+        q = F.softmax(q, dim=-1)
+        loss = F.kl_div(q.log(), p, reduction='batchmean')
+        return loss
+
+class KLDivLoss2(nn.Module):
+    def __init__(self):
+        super(KLDivLoss2, self).__init__()
+
+
+    def forward(self, p, q):
+        p = F.softmax(p, dim=-1)
+        q = F.softmax(q, dim=-1)
+        loss = F.kl_div(q.log(), p, reduction='batchmean')
+        return loss
+
+class ContrastiveLoss(nn.Module):
+    def __init__(self, fc, margin=1.0):
+        super(ContrastiveLoss, self).__init__()
+        self.margin = margin
+        self.fc = fc
+
+    def forward(self, feature1, feature2):
+        feature2 = self.fc(feature2.transpose(2, 1)).transpose(2, 1)
+        batch_size = feature1.size(0)
+
+        # 计算正样本对（即同一样本）的余弦相似度
+        positive_similarities = F.cosine_similarity(feature1, feature2, dim=1)
+
+        # 创建负样本对
+        negative_similarities = []
+        for i in range(batch_size):
+            for j in range(batch_size):
+                if i != j:
+                    negative_similarity = F.cosine_similarity(feature1[i].unsqueeze(0),
+                                                              feature2[j].unsqueeze(0))
+                    negative_similarities.append(negative_similarity)
+        negative_similarities = torch.stack(negative_similarities)
+
+        # 计算对比损失
+        positive_loss = torch.mean(positive_similarities)
+        negative_loss = torch.mean(F.relu(self.margin - negative_similarities))
+
+        contrastive_loss = positive_loss + negative_loss
+        return contrastive_loss
 
 class onerun:
 
@@ -55,7 +109,7 @@ class onerun:
         if len(self.device_ids) > 1:
             self.model = nn.DataParallel(self.model, device_ids=self.device_ids)
         for epoch in range(1,self.total_epoch+1):
-            test = self.eval("test", epoch=epoch)
+            # test = self.eval("test", epoch=epoch)
             train=self.train(epoch)
             tb_logger.log_value('pre_train', train["precision_score"], step=epoch)
             tb_logger.log_value('recall_train', train["recall_score"], step=epoch)
@@ -159,9 +213,9 @@ class onerun:
 
     def train(self,epoch):
         # 生成热力图准备工作
-        self.gen_heat_map_prepare()
+        # self.gen_heat_map_prepare()
         # 生成图像热力图
-        visual.gen_image_heat_map(self.model, self.tokenizer_roberta)
+        # visual.gen_image_heat_map(self.model, self.tokenizer_roberta)
         self.model.train()
         self.log.info('Epoch {}/{}'.format(epoch, self.total_epoch))
         running_loss = 0.0
@@ -181,6 +235,24 @@ class onerun:
             scores, lang_feat, img_feat, bert_embed_att = self.model(input)
 
             loss = self.loss(scores, input["label"], lang_feat, img_feat)
+            # 计算对比损失
+            text_img_contrastive_loss = self.text_img_contrastive_loss(img_feat, lang_feat)
+            img_text_contrastive_loss = self.img_text_contrastive_loss(lang_feat, img_feat)
+
+            loss = loss + self.ma * img_text_contrastive_loss + (1 - self.ma) * text_img_contrastive_loss
+
+            # sarcasm_list = []
+            # non_sarcasm_list = []
+            # for i in range(len(scores)):
+            #     if scores[i, 0] > scores[i, 1]:  # 如果讽刺的概率大于非讽刺的概率
+            #         sarcasm_list.append(i)
+            #     else:  # 如果非讽刺的概率大于讽刺的概率
+            #         non_sarcasm_list.append(i)
+            # q_n_s = torch.index_select(lang_feat, 0, torch.tensor(non_sarcasm_list))
+            # p_n_s = torch.index_select(img_feat, 0, torch.tensor(non_sarcasm_list))
+            # t_i_kl_loss = self.text_kl_loss(q_n_s, p_n_s)
+            # i_t_kl_loss = self.img_kl_loss(p_n_s, q_n_s)
+            # loss = loss + t_i_kl_loss + i_t_kl_loss
 
             loss.backward()
             # 计算热力图
@@ -190,7 +262,7 @@ class onerun:
             self.optimizer.step()
             self.model.zero_grad()
             running_loss += loss.item() * input["label"].size(0)
-            
+
             _, preds = scores.data.max(1)
             running_corrects += (preds == input["label"]).sum()
             y_pred.extend(preds.tolist())
@@ -268,7 +340,7 @@ class onerun:
         epoch_loss = running_loss / (len(self.dataloaders[mode]) * self.batch_size)
 
         epoch_acc = accuracy_score(y_true, y_pred)
-        
+
         conf=confusion_matrix(y_true, y_pred)
         pre_macro = precision_score(y_true, y_pred, average="macro")
         recall_macro = recall_score(y_true, y_pred, average="macro")
@@ -348,6 +420,11 @@ class onerun:
         self.log.info("Created Optimizer : %s" % json.dumps(self.opt["optimizeropt"]))
         assert("lossopt" in self.opt and "name" in self.opt["lossopt"])
         self.loss=model._loss[self.opt["lossopt"]["name"]](self.opt["lossopt"])
+        self.img_kl_loss = KLDivLoss(49, 100)
+        self.text_kl_loss = KLDivLoss(100, 49)
+        self.ma = nn.Parameter(torch.tensor(0.5), requires_grad=True)
+        self.text_img_contrastive_loss = ContrastiveLoss(nn.Linear(100, 49))
+        self.img_text_contrastive_loss = ContrastiveLoss(nn.Linear(49, 100))
         self.log.info("Created Loss : %s" % json.dumps(self.opt["lossopt"]))
         self.model.to(self.device)
         self.log.info("Model To Device : %s" % self.device)
