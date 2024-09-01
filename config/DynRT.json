@@ -130,7 +130,7 @@
             }
         },
         "lossopt": {
-            "name": "CrossEntropyLoss"
+            "name": "LabelSmoothCrossEntropyLoss"
         },
         "total_epoch": 15,
         "clip": 10

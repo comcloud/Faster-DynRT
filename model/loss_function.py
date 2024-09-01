@@ -23,6 +23,9 @@ def build_CrossEntropyLoss_weighted(opt):
 def build_FocalLoss(opt):
     return FocalLoss()
 
+def build_label_smooth_cross_entropy_loss(opt):
+    return LabelSmoothingCrossEntropy()
+
 class bceLoss(nn.Module):
     def __init__(self):
         super(bceLoss, self).__init__()
@@ -183,3 +186,23 @@ class FocalLoss(nn.Module):
         return loss
 
 
+class LabelSmoothingCrossEntropy(nn.Module):
+    def __init__(self, epsilon: float = 0.1, reduction='mean'):
+        super().__init__()
+        self.epsilon = epsilon
+        self.reduction = reduction
+
+    def forward(self, preds, target, rep_anchor, rep_candidate):
+        n = preds.size()[-1]
+        log_preds = F.log_softmax(preds, dim=-1)
+        loss = self.reduce_loss(-log_preds.sum(dim=-1), self.reduction)
+        nll = F.nll_loss(log_preds, target, reduction=self.reduction)
+        return self.linear_combination(loss / n, nll, self.epsilon)
+
+    @staticmethod
+    def reduce_loss(loss, reduction='mean'):
+        return loss.mean() if reduction == 'mean' else loss.sum() if reduction == 'sum' else loss
+
+    @staticmethod
+    def linear_combination(x, y, epsilon):
+        return epsilon * x + (1 - epsilon) * y
