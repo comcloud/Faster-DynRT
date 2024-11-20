@@ -1,3 +1,4 @@
+import json
 import pickle
 import torch
 import os
@@ -11,6 +12,14 @@ def load_file(filename):
         ret = pickle.load(filehandle)
         return ret
 
+def load_2_file(filename):
+    id_list = []
+    with open(filename, 'r', encoding='utf-8') as file:
+        data_list = json.load(file)
+        for data in data_list:
+            id_list.append(data['image_id'])
+    return id_list
+
 
 class loader_img:
     def __init__(self):
@@ -23,6 +32,11 @@ class loader_img:
             "test":load_file(opt["data_path"] + "test_id"),
             "valid":load_file(opt["data_path"] + "valid_id")
         }
+        # self.id = {
+        #     "train": load_2_file(opt["data_2_path"] + "train.json"),
+        #     "test": load_2_file(opt["data_2_path"] + "test.json"),
+        #     "valid": load_2_file(opt["data_2_path"] + "valid.json")
+        # }
         self.transform_image_path = opt["transform_image"]
 
     # def get(self,result,mode,index):
@@ -40,8 +54,8 @@ class loader_img:
     def get(self, result, mode, index):
         # 如果文件不存在，则直接进行新建
         # 图片所在目录
-        file_path = '/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector2/' + self.id[mode][index] + ".jpg"
-        new_file_path = "/Users/rayss/pythonProjects/DynRT_bridge/input/image_tensor/" + self.id[mode][index] + ".npy"
+        file_path = '/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector2/' + str(self.id[mode][index]) + ".jpg"
+        new_file_path = "/Users/rayss/Public/读研经历/论文/ironyDetection/image_tensor_224/" + str(self.id[mode][index]) + ".npy"
         if not os.path.exists(new_file_path):
             # 从文件加载图像数据
             image = Image.open(file_path)

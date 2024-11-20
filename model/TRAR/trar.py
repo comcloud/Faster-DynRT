@@ -391,7 +391,35 @@ def getMasks_img_multimodal(x_mask, __C):
             mask = torch.concat([mask, mask_img[:(__C["len"]%(__C["IMG_SCALE"]*__C["IMG_SCALE"])),:]])
             mask = torch.logical_or(x_mask, mask) # (64, 1, max_len, grid_num)
             mask_list.append(mask)
-    return mask_list 
+    return mask_list
+
+
+# def getTextMasks(length=77, order=2):
+#     """
+#     :param length: Text sequence length (instead of scale in image)
+#     :param order: Local window size, e.g., order=2 equals to windows size (5) in 1D
+#     :return: masks = (length, length) where each row is a 1D mask
+#     """
+#     masks = []
+#     _length = length
+#     assert order < _length, 'order size must be smaller than text length'
+#
+#     for i in range(_length):
+#         # Initialize the mask as all ones (size length)
+#         mask = np.ones([_length], dtype=np.float32)
+#
+#         # Create the local window (order defines the range around i)
+#         for x in range(i - order, i + order + 1):
+#             if 0 <= x < _length:  # Ensure x is within bounds
+#                 mask[x] = 0
+#
+#         # Append the mask for this position to the list
+#         masks.append(mask)
+#
+#     # Convert list of masks to a numpy array and cast to boolean (0, 1 -> False, True)
+#     masks = np.array(masks)
+#     masks = np.asarray(masks, dtype=np.bool_)  # 0, 1 -> False, True (True mask)
+#     return masks
 
 def getTextMasks(max_len, order):
     """
@@ -420,8 +448,8 @@ def getMasks_text_multimodal(x_mask, __C):
         if order == 0:
             mask_list.append(x_mask)
         else:
-            mask_text = torch.from_numpy(getImgMasks(__C["len"]//10, order)).float().to(x_mask.device).transpose(1, 0)  # (max_len, max_len)
-            # mask = mask_txt_linear(mask_text).transpose(1, 0)
+            mask_text = torch.from_numpy(getImgMasks(10, order)).float().to(x_mask.device).transpose(1, 0)  # (max_len, max_len)
+            # mask = mask_txt_linear(mask_text).transpose(1, 0) 49,49
             mask = torch.logical_or(x_mask, mask_text)  # (batch_size, 1, grid_num, max_len)
             mask_list.append(mask)
     return mask_list

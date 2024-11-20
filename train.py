@@ -9,6 +9,7 @@ import torch
 import os
 import numpy
 from torch.cuda.amp import GradScaler, autocast
+from tqdm import tqdm
 
 import input
 import model
@@ -229,7 +230,7 @@ class onerun:
         # Creates a GradScaler once at the beginning of training.
         scaler = GradScaler()
         
-        for i, batch in enumerate(self.dataloaders["train"]):
+        for i, batch in tqdm(enumerate(self.dataloaders["train"]), total=len(self.dataloaders["train"])):
                 
             input={}
             for key in batch:
@@ -323,7 +324,7 @@ class onerun:
         with torch.no_grad():
             all_feature = []
             all_labels = []
-            for i, batch in enumerate(self.dataloaders[mode]):
+            for i, batch in tqdm(enumerate(self.dataloaders[mode]), total=len(self.dataloaders[mode])):
                 if i > 20:
                     input = {}
                     for key in batch:

@@ -30,18 +30,21 @@
             },
             "loaders": {
                 "text": {
-                    "data_path": "input/prepared_clean/",
+                    "data_path": "input/prepared/",
+                    "data_2_path" : "input/MSD2/",
                     "len": 100,
                     "pad": 1,
-                    "att_file_path" : "input/prepared_clean/att/",
+                    "att_file_path" : "input/prepared/att/",
                     "mould": "A photo containing the {att_0}, {att_1}, {att_2}, {att_3} and {att_4}"
                 },
                 "img": {
-                    "data_path": "input/prepared_clean/",
+                    "data_path": "input/prepared/",
+                    "data_2_path" : "input/MSD2/",
                     "transform_image": "image_tensor/"
                 },
                 "label": {
-                    "data_path": "input/prepared_clean/",
+                    "data_path": "input/prepared/",
+                    "data_2_path" : "input/MSD2/",
                     "test_label": true
                 }
             },

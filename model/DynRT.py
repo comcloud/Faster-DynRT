@@ -1,7 +1,7 @@
 import torch
 import timm
 import model
-from transformers import RobertaModel
+from transformers import RobertaModel, CLIPModel
 
 from model.TRAR.cls_layer import cls_layer_both
 from model.attention.BridgeInfoLayer import BridgeInfoLayer
@@ -20,6 +20,10 @@ class DynRT(torch.nn.Module):
     def __init__(self,bertl_text,vit, opt,batch_size=32):
         super(DynRT, self).__init__()
 
+        clip_model = CLIPModel.from_pretrained("/Users/rayss/pythonProjects/pretrained_model/clip-vit-base-patch32")
+        self.clip_image = clip_model.vision_model
+        self.clip_text = clip_model.text_model
+        self.fc_clip = torch.nn.Linear(512, 768)
         self.bertl_text = bertl_text
         self.opt = opt
         self.vit = vit
@@ -77,14 +81,33 @@ class DynRT(torch.nn.Module):
         x = self.vit.norm(x)
         return x[:,1:]
 
+    def clip_text_forward(self, x):
+        clip_embed_text = self.clip_text.embeddings(x)
+        # (bs, max_len, dim)
+        # bert_text = self.bertl_text.encoder.layer[0](bert_embed_text)[0]
+        for i in range(6):
+            clip_embed_text = self.clip_text.encoder.layers[i](clip_embed_text, None, None)[0]
+        return self.fc_clip(clip_embed_text)
+
+    def clip_image_forward(self, x):
+        clip_embed_image = self.clip_image.embeddings(x)
+        # (bs, max_len, dim)
+        # bert_text = self.bertl_text.encoder.layer[0](bert_embed_text)[0]
+        for i in range(6):
+            clip_embed_image = self.clip_image.encoder.layers[i](clip_embed_image, None, None)[0]
+        return clip_embed_image[:, 1:]
+
     # forward propagate input
     def forward(self, input):
         # 属性
-        bert_embed_att = self.bert_forward(input[self.input4], input[self.input5])
+        # bert_embed_att = self.bert_forward(input[self.input4], input[self.input5])
+        bert_embed_att = self.clip_text_forward(input[self.input4])
         # 文本
-        bert_embed_text = self.bert_forward(input[self.input1], input[self.input3])
+        # bert_embed_text = self.bert_forward(input[self.input1], input[self.input3])
+        bert_embed_text = self.clip_text_forward(input[self.input1])
         # 图像 (bs, grid_num, dim)
-        img_feat = self.vit_forward(input[self.input2])
+        # img_feat = self.vit_forward(input[self.input2])
+        img_feat = self.clip_image_forward(input[self.input2])
 
         # 属性关联
         text_incongruity, image_incongruity = self.bridge_info_layer(bert_embed_text, input[self.input3],
