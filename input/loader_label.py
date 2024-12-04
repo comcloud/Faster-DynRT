@@ -14,6 +14,14 @@ def load_2_file(filename):
             label_list.append(data['label'])
     return label_list
 
+def load_bully_file(filename):
+
+    # 读取文件并将每行作为列表元素
+    with open(filename, 'r') as file:
+        data_list = file.readlines()
+
+    # 去除每行末尾的换行符（如果需要）
+    return [line.strip() for line in data_list]
 class loader_label:
     def __init__(self):
         self.name="label"
@@ -26,11 +34,22 @@ class loader_label:
                 "test":load_file(opt["data_path"] + "test_labels"),
                 "valid":load_file(opt["data_path"] + "valid_labels")
             }
-            # self.label = {
+            # self.label2 = {
             #     "train": load_2_file(opt["data_2_path"] + "train.json"),
             #     "test": load_2_file(opt["data_2_path"] + "test.json"),
             #     "valid": load_2_file(opt["data_2_path"] + "valid.json")
             # }
+            # for m in ['train', 'test', 'valid']:
+            #     print('-----------' + m + '--------------')
+            #     diff_indexes = list(filter(lambda i: self.label[m][i] != self.label2[m][i], range(len(self.label[m]))))
+            #     diff_indexes = [i + 1 for i in diff_indexes]
+            #     print(diff_indexes)
+            # self.label = {
+            #     "train": load_bully_file(opt["data_bully_path"] + "train_label.txt"),
+            #     "test": load_bully_file(opt["data_bully_path"] + "test_label.txt"),
+            #     "valid": load_bully_file(opt["data_bully_path"] + "valid_label.txt")
+            # }
+
         else:
             self.label ={
                 "train":load_file(opt["data_path"] + "train_labels"),

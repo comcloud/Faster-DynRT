@@ -32,6 +32,7 @@
                 "text": {
                     "data_path": "input/prepared/",
                     "data_2_path" : "input/MSD2/",
+                    "data_bully_path" : "input/bully/",
                     "len": 100,
                     "pad": 1,
                     "att_file_path" : "input/prepared/att/",
@@ -40,11 +41,13 @@
                 "img": {
                     "data_path": "input/prepared/",
                     "data_2_path" : "input/MSD2/",
+                    "data_bully_path" : "input/bully/",
                     "transform_image": "image_tensor/"
                 },
                 "label": {
                     "data_path": "input/prepared/",
                     "data_2_path" : "input/MSD2/",
+                    "data_bully_path" : "input/bully/",
                     "test_label": true
                 }
             },

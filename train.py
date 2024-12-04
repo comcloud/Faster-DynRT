@@ -111,6 +111,7 @@ class onerun:
         if len(self.device_ids) > 1:
             self.model = nn.DataParallel(self.model, device_ids=self.device_ids)
         for epoch in range(1,self.total_epoch+1):
+            self.incorrect_position = {'train': [], 'valid': [], 'test': []}
             # test = self.eval("test", epoch=epoch)
             train=self.train(epoch)
             tb_logger.log_value('pre_train', train["precision_score"], step=epoch)
@@ -170,6 +171,10 @@ class onerun:
                     }, prefix=self.opt["model_savepath"])
 
             self.train_logger.tb_log(tb_logger, step=epoch)
+            with open('exp/incorrect_position.json', 'w') as json_file:
+                json.dump(self.incorrect_position, json_file, indent=4)
+                print("写入incorrect_position成功")
+
     
 
     def save_config(self, f_json):
@@ -213,6 +218,17 @@ class onerun:
         state_dict = torch.load("./checkpoint/new_model_best.pth.tar", map_location="cpu")
         self.model.load_state_dict(state_dict['model'])
 
+    def save_error_label(self, i, mode, scores, labels):
+        new_scores = [0 if score[0] > score[1] else 1 for score in scores]
+        incorrect_indices = [new_i for new_i in range(len(new_scores)) if
+                             new_scores[new_i] != labels[new_i]]
+
+        self.incorrect_position[mode] = self.incorrect_position[mode] + list(map(lambda item: item + 1 + i * labels.size()[0], incorrect_indices))
+        # if len(incorrect_indices) > 0 :
+        #     print(mode, end=':\n')
+        #     print("i : ", i)
+        #     print("Incorrect position:", incorrect_position)
+
     def train(self,epoch):
         # 生成热力图准备工作
         # self.gen_heat_map_prepare()
@@ -238,7 +254,7 @@ class onerun:
 
             with autocast():
                 scores, lang_feat, img_feat, bert_embed_att = self.model(input)
-
+                self.save_error_label(i, 'train',scores, input['label'])
                 loss = self.loss(scores, input["label"], lang_feat, img_feat)
                 # 计算对比损失
                 # text_img_contrastive_loss = self.text_img_contrastive_loss(img_feat, lang_feat)
@@ -325,36 +341,36 @@ class onerun:
             all_feature = []
             all_labels = []
             for i, batch in tqdm(enumerate(self.dataloaders[mode]), total=len(self.dataloaders[mode])):
-                if i > 20:
-                    input = {}
-                    for key in batch:
-                        input[key] = batch[key].to(self.device)
-                    scores, lang_feat, img_feat, bert_embed_att = self.model(input)
+                # if i > 20:
+                #     input = {}
+                #     for key in batch:
+                #         input[key] = batch[key].to(self.device)
+                #     scores, lang_feat, img_feat, bert_embed_att = self.model(input)
+                #
+                #     # 散点图
+                #     all_feature.append(torch.concat((lang_feat, img_feat, bert_embed_att), dim=1).numpy())
+                #     all_labels.append(input["label"].numpy())
+                #     if i == 40:
+                #         break
+                input={}
+                for key in batch:
+                    input[key]=batch[key].to(self.device)
+                scores, lang_feat, img_feat, bert_embed_att = self.model(input)
+                self.save_error_label(i, mode, scores, input['label'])
+                loss = self.loss(scores, input["label"], lang_feat, img_feat)
 
-                    # 散点图
-                    all_feature.append(torch.concat((lang_feat, img_feat, bert_embed_att), dim=1).numpy())
-                    all_labels.append(input["label"].numpy())
-                    if i == 40:
-                        break
-                # input={}
-                # for key in batch:
-                #     input[key]=batch[key].to(self.device)
-                # scores, lang_feat, img_feat, bert_embed_att = self.model(input)
-                #
-                # loss = self.loss(scores, input["label"], lang_feat, img_feat)
-                #
-                # running_loss += loss.item() * input["label"].size(0)
-                #
-                # _, preds = scores.data.max(1)
-                #
-                # running_corrects += (preds == input["label"]).sum()
-                # y_pred.extend(preds.tolist())
-                # scores_list.extend(_.tolist())
-                # y_true.extend(input["label"].tolist())
+                running_loss += loss.item() * input["label"].size(0)
 
-                # del input, scores
-            visual.visualize_and_save_tsne_2d_withgate(all_feature, all_labels,
-                                                       '/Users/rayss/pythonProjects/DynRT/checkpoint/img.png')
+                _, preds = scores.data.max(1)
+
+                running_corrects += (preds == input["label"]).sum()
+                y_pred.extend(preds.tolist())
+                scores_list.extend(_.tolist())
+                y_true.extend(input["label"].tolist())
+
+                del input, scores
+            # visual.visualize_and_save_tsne_2d_withgate(all_feature, all_labels,
+            #                                            '/Users/rayss/pythonProjects/DynRT/checkpoint/img.png')
 
         epoch_loss = running_loss / (len(self.dataloaders[mode]) * self.batch_size)
 

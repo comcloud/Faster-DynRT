@@ -17,7 +17,14 @@ def load_2_file(filename):
             text_list.append(data['text'])
     return text_list
 
+def load_bully_file(filename):
 
+    # 读取文件并将每行作为列表元素
+    with open(filename, 'r') as file:
+        data_list = file.readlines()
+
+    # 去除每行末尾的换行符（如果需要）
+    return [line.strip() for line in data_list]
 def load_att_file(att_file_path, mould):
     att_mould_list = []
     with open(att_file_path) as f:
@@ -41,6 +48,11 @@ class loader_text:
         #     "test":load_2_file(opt["data_2_path"] + "test.json"),
         #     "valid":load_2_file(opt["data_2_path"] + "valid.json")
         # }
+        # self.text = {
+        #     "train": load_bully_file(opt["data_bully_path"] + "train_text.txt"),
+        #     "test": load_bully_file(opt["data_bully_path"] + "test_text.txt"),
+        #     "valid": load_bully_file(opt["data_bully_path"] + "valid_text.txt")
+        # }
         self.att = {
             "train": load_att_file(opt["att_file_path"] + "train_att.txt", opt['mould']),
             "test": load_att_file(opt["att_file_path"] + "test_att.txt", opt['mould']),
@@ -53,7 +65,7 @@ class loader_text:
             opt["pad"]=1
         self.pad=opt["pad"]
         self.tokenizer=input[list(input.keys())[0]]
-        self.processor = CLIPProcessor.from_pretrained("/Users/rayss/pythonProjects/pretrained_model/clip-vit-base-patch32")
+        # self.processor = CLIPProcessor.from_pretrained("/Users/rayss/pythonProjects/pretrained_model/clip-vit-base-patch32")
 
         self.text_mask = {
             "train":[],
@@ -76,10 +88,10 @@ class loader_text:
             "test": [],
             "valid": []
         }
-        self.extract_feature_by_processor(self.text, self.text_mask, self.text_id)
-        self.extract_feature_by_processor(self.att, self.att_mask, self.att_id)
-        # self.extract_feature_by_tokenizer(self.text, self.text_mask, self.text_id)
-        # self.extract_feature_by_tokenizer(self.att, self.att_mask, self.att_id)
+        # self.extract_feature_by_processor(self.text, self.text_mask, self.text_id)
+        # self.extract_feature_by_processor(self.att, self.att_mask, self.att_id)
+        self.extract_feature_by_tokenizer(self.text, self.text_mask, self.text_id)
+        self.extract_feature_by_tokenizer(self.att, self.att_mask, self.att_id)
 
     def extract_feature_by_tokenizer(self, source_data, mask, id):
         for mode in source_data.keys():

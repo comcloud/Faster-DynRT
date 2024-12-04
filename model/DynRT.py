@@ -100,14 +100,14 @@ class DynRT(torch.nn.Module):
     # forward propagate input
     def forward(self, input):
         # 属性
-        # bert_embed_att = self.bert_forward(input[self.input4], input[self.input5])
-        bert_embed_att = self.clip_text_forward(input[self.input4])
+        bert_embed_att = self.bert_forward(input[self.input4], input[self.input5])
+        # bert_embed_att = self.clip_text_forward(input[self.input4])
         # 文本
-        # bert_embed_text = self.bert_forward(input[self.input1], input[self.input3])
-        bert_embed_text = self.clip_text_forward(input[self.input1])
+        bert_embed_text = self.bert_forward(input[self.input1], input[self.input3])
+        # bert_embed_text = self.clip_text_forward(input[self.input1])
         # 图像 (bs, grid_num, dim)
-        # img_feat = self.vit_forward(input[self.input2])
-        img_feat = self.clip_image_forward(input[self.input2])
+        img_feat = self.vit_forward(input[self.input2])
+        # img_feat = self.clip_image_forward(input[self.input2])
 
         # 属性关联
         text_incongruity, image_incongruity = self.bridge_info_layer(bert_embed_text, input[self.input3],

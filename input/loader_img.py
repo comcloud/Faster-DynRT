@@ -19,7 +19,14 @@ def load_2_file(filename):
         for data in data_list:
             id_list.append(data['image_id'])
     return id_list
+def load_bully_file(filename):
 
+    # 读取文件并将每行作为列表元素
+    with open(filename, 'r') as file:
+        data_list = file.readlines()
+
+    # 去除每行末尾的换行符（如果需要）
+    return [line.strip() for line in data_list]
 
 class loader_img:
     def __init__(self):
@@ -36,6 +43,11 @@ class loader_img:
         #     "train": load_2_file(opt["data_2_path"] + "train.json"),
         #     "test": load_2_file(opt["data_2_path"] + "test.json"),
         #     "valid": load_2_file(opt["data_2_path"] + "valid.json")
+        # }
+        # self.id = {
+        #     "train": load_bully_file(opt["data_bully_path"] + "train_id.txt"),
+        #     "test": load_bully_file(opt["data_bully_path"] + "test_id.txt"),
+        #     "valid": load_bully_file(opt["data_bully_path"] + "valid_id.txt")
         # }
         self.transform_image_path = opt["transform_image"]
 
