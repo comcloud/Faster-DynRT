@@ -742,10 +742,11 @@ class Dataset(torch.utils.data.Dataset):
 
 
 
-def main(args):
-    print(args)
+def main():
+    # print(args)
     # assert(len(args)==2)
-    fname=args[1]
+    # fname=args[1]
+    fname='config/DynRT.json'
     # fname = 'config/DynRT.json'
     assert(os.path.exists(fname) and fname.endswith(".json"))
     OneRun=onerun(fname)
@@ -754,4 +755,4 @@ def main(args):
     
 
 if __name__=="__main__":
-    main(sys.argv)
+    main()

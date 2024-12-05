@@ -3,6 +3,8 @@ import pickle
 import torch
 from transformers import CLIPProcessor
 
+from model.mamba_clip_main.tokenizer import SimpleTokenizer
+
 
 def load_file(filename):
     with open(filename, 'rb') as filehandle:
@@ -65,6 +67,7 @@ class loader_text:
             opt["pad"]=1
         self.pad=opt["pad"]
         self.tokenizer=input[list(input.keys())[0]]
+        # self.tokenizer = SimpleTokenizer()
         # self.processor = CLIPProcessor.from_pretrained("/Users/rayss/pythonProjects/pretrained_model/clip-vit-base-patch32")
 
         self.text_mask = {
@@ -97,6 +100,7 @@ class loader_text:
         for mode in source_data.keys():
             for index, text in enumerate(source_data[mode]):
                 indexed_tokens_for_text = self.tokenizer(text)['input_ids']
+                # indexed_tokens_for_text = self.tokenizer(text)
                 if len(indexed_tokens_for_text) > self.len:
                     indexed_tokens_for_text = indexed_tokens_for_text[0:self.len]
                 text_mask = torch.BoolTensor(

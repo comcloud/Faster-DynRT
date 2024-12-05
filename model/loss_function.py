@@ -8,6 +8,9 @@ import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
 
+from model.mamba_clip_main import utils
+
+
 def build_CrossentropyLoss_ContrastiveLoss(opt):
     return CrossentropyLoss_ContrastiveLoss(opt["distance_metric"], opt["margin"], opt["loss_trade"])
 
@@ -25,6 +28,9 @@ def build_FocalLoss(opt):
 
 def build_label_smooth_cross_entropy_loss(opt):
     return LabelSmoothingCrossEntropy()
+
+def build_CLIPLoss(opt):
+    return CLIPLoss()
 
 class bceLoss(nn.Module):
     def __init__(self):
@@ -206,3 +212,38 @@ class LabelSmoothingCrossEntropy(nn.Module):
     @staticmethod
     def linear_combination(x, y, epsilon):
         return epsilon * x + (1 - epsilon) * y
+
+
+class CLIPLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, outputs, target, rep_anchor, rep_candidate):
+        image_embed = outputs['image_embed']
+        text_embed = outputs['text_embed']
+        logit_scale = outputs['logit_scale']
+        local_batch_size = image_embed.size(0)
+
+
+        # normalized features
+        image_embed = F.normalize(image_embed, dim=-1, p=2)
+        text_embed = F.normalize(text_embed, dim=-1, p=2)
+
+        # gather features from all GPUs
+        image_embed_all, text_embed_all = \
+            utils.all_gather_batch_with_grad([image_embed, text_embed])
+
+        # cosine similarity as logits
+        logits_per_image = logit_scale * image_embed @ text_embed_all.t()
+        logits_per_text = logit_scale * text_embed @ image_embed_all.t()
+
+        loss = (F.cross_entropy(logits_per_image, target) + \
+            F.cross_entropy(logits_per_text, target)) / 2
+
+        # compute accuracy
+        with torch.no_grad():
+            pred = torch.argmax(logits_per_image, dim=-1)
+            correct = pred.eq(target).sum()
+            acc = 100 * correct / local_batch_size
+
+        return {'loss': loss, 'clip_loss': loss, 'clip_acc': acc}

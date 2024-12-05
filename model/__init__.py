@@ -1,6 +1,6 @@
 from model.Optimizers import build_Adam
 from model.loss_function import build_CrossentropyLoss_ContrastiveLoss, build_BCELoss, build_CrossEntropyLoss, \
-    build_CrossEntropyLoss_weighted, build_FocalLoss, build_label_smooth_cross_entropy_loss
+    build_CrossEntropyLoss_weighted, build_FocalLoss, build_label_smooth_cross_entropy_loss, CLIPLoss
 import model.TRAR
 from model.DynRT import build_DynRT
 _models={
@@ -17,5 +17,6 @@ _loss={
     "BCELoss":build_BCELoss,
     "CrossentropyLoss_ContrastiveLoss": build_CrossentropyLoss_ContrastiveLoss,
     "Crossentropy_Loss_weighted": build_CrossEntropyLoss_weighted,
-    "LabelSmoothCrossEntropyLoss": build_label_smooth_cross_entropy_loss
+    "LabelSmoothCrossEntropyLoss": build_label_smooth_cross_entropy_loss,
+    "clip_loss" : CLIPLoss()
 }

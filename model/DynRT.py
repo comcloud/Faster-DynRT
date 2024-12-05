@@ -1,3 +1,5 @@
+import argparse
+
 import torch
 import timm
 import model
@@ -10,6 +12,8 @@ from model.attention.GuideAttentionLayer import GuideAttentionLayer
 from model.attention.MultimodalFusionLayer import MultimodalFusionLayer
 from model.attention.TraditionalAttentionLayer import TraditionalAttentionLayer
 
+from model.mamba_clip_main.main import get_model, get_args_parser
+
 def freeze_layers(model):
     for child in model.children():
         for param in child.parameters():
@@ -20,10 +24,13 @@ class DynRT(torch.nn.Module):
     def __init__(self,bertl_text,vit, opt,batch_size=32):
         super(DynRT, self).__init__()
 
-        clip_model = CLIPModel.from_pretrained("/Users/rayss/pythonProjects/pretrained_model/clip-vit-base-patch32")
-        self.clip_image = clip_model.vision_model
-        self.clip_text = clip_model.text_model
-        self.fc_clip = torch.nn.Linear(512, 768)
+        # clip_model = CLIPModel.from_pretrained("/Users/rayss/pythonProjects/pretrained_model/clip-vit-base-patch32")
+        # self.clip_image = clip_model.vision_model
+        # self.clip_text = clip_model.text_model
+        # self.fc_clip = torch.nn.Linear(512, 768)
+        # parser = argparse.ArgumentParser('A-CLIP training and evaluation', parents=[get_args_parser()])
+        # args = parser.parse_args()
+        # self.clip_mamba = get_model(args)
         self.bertl_text = bertl_text
         self.opt = opt
         self.vit = vit
@@ -107,6 +114,10 @@ class DynRT(torch.nn.Module):
         # bert_embed_text = self.clip_text_forward(input[self.input1])
         # 图像 (bs, grid_num, dim)
         img_feat = self.vit_forward(input[self.input2])
+
+        # res = self.clip_mamba(input[self.input2], input[self.input4])
+        # bert_embed_text = res['text_embed']
+        # img_feat = res['image_embed']
         # img_feat = self.clip_image_forward(input[self.input2])
 
         # 属性关联
