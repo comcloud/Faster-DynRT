@@ -13,12 +13,21 @@ def parse_instruction(instruction_path: Path) -> Dict[str, object]:
     raw = instruction_path.read_text(encoding="utf-8", errors="ignore")
     lines = raw.splitlines()
     task = ""
-    instruction = []
+    instruction: List[str] = []
+    global_guidance: List[str] = []
+    task_instruction: List[str] = []
     targets: List[str] = []
     mode = "head"
+    section = "instruction"
     for line in lines:
         if line.startswith("Task:"):
             task = line.split("Task:", 1)[1].strip()
+            continue
+        if line.strip() == "Global Guidance:":
+            section = "global_guidance"
+            continue
+        if line.strip() == "Task Instruction:":
+            section = "task_instruction"
             continue
         if line.strip() == "Target files:":
             mode = "targets"
@@ -28,12 +37,28 @@ def parse_instruction(instruction_path: Path) -> Dict[str, object]:
                 targets.append(line.strip()[2:].strip())
             continue
         if line.strip():
-            instruction.append(line)
+            if section == "global_guidance":
+                global_guidance.append(line)
+            elif section == "task_instruction":
+                task_instruction.append(line)
+            else:
+                instruction.append(line)
+    effective_instruction = "\n".join(task_instruction).strip() or "\n".join(instruction).strip()
     return {
         "task": task,
-        "instruction": "\n".join(instruction).strip(),
+        "instruction": effective_instruction,
+        "global_guidance": "\n".join(global_guidance).strip(),
         "targets": targets,
     }
+
+
+def parse_context_files(raw: str) -> List[str]:
+    out: List[str] = []
+    for item in raw.split(","):
+        path = item.strip()
+        if path and path not in out:
+            out.append(path)
+    return out
 
 
 def main() -> int:
@@ -76,6 +101,7 @@ def main() -> int:
     targets: List[str] = parsed["targets"]  # type: ignore[assignment]
     if not targets:
         raise RuntimeError("No target files in instruction file.")
+    context_files = parse_context_files(os.environ.get("AGENT_CONTEXT_FILES", ""))
 
     file_payload = []
     for rel_path in targets:
@@ -87,6 +113,20 @@ def main() -> int:
         content = abs_path.read_text(encoding="utf-8", errors="ignore")
         file_payload.append({"path": rel_path, "content": content})
 
+    context_payload = []
+    for rel_path in context_files:
+        abs_path = (workspace / rel_path).resolve()
+        if workspace not in abs_path.parents and abs_path != workspace:
+            continue
+        if not abs_path.exists() or not abs_path.is_file():
+            continue
+        context_payload.append(
+            {
+                "path": rel_path,
+                "content": abs_path.read_text(encoding="utf-8", errors="ignore"),
+            }
+        )
+
     system_prompt = (
         "You are a careful coding agent. "
         "Modify only the provided target files and preserve public interfaces unless asked otherwise. "
@@ -95,7 +135,9 @@ def main() -> int:
     )
     user_prompt = {
         "task_name": args.task_name,
+        "global_guidance": parsed.get("global_guidance", ""),
         "instruction": parsed["instruction"],
+        "model_structure_context_files": context_payload,
         "target_files": file_payload,
         "constraints": [
             "Do not change file paths.",

@@ -1,0 +1,102 @@
+{
+  "project_root": ".",
+  "base_config": "config/DynRT.remote.template.json",
+  "train_script": "train.py",
+  "python_bin": "python",
+  "output_dir": "auto_runs/msd_gpu_pilot_v2",
+  "agent": {
+    "command": "python automation/agent_adapter.py --workspace {workspace} --instruction-file {instruction_file} --task-name {task_name}",
+    "timeout_sec": 300
+  },
+  "agent_tasks": [
+    {
+      "name": "mod_bridge_gated_residual",
+      "instruction": "Modify bridge feature fusion with gated residual mixing in BridgeInfoLayer. Keep input/output tensor shapes and external interfaces unchanged.",
+      "target_files": [
+        "model/attention/BridgeInfoLayer.py",
+        "model/DynRT.py"
+      ]
+    },
+    {
+      "name": "mod_cross_modal_pre_norm",
+      "instruction": "Refactor CrossModalTransformerLayer to pre-norm style with residual stability improvements. Keep APIs and tensor dimensions unchanged.",
+      "target_files": [
+        "model/attention/CrossModalTransformerLayer.py",
+        "model/DynRT.py"
+      ]
+    },
+    {
+      "name": "mod_multimodal_fusion_highway",
+      "instruction": "Add highway-style fusion in MultimodalFusionLayer to stabilize deep feature composition. Keep all call sites compatible.",
+      "target_files": [
+        "model/attention/MultimodalFusionLayer.py",
+        "model/DynRT.py"
+      ]
+    }
+  ],
+  "experiments": [
+    {
+      "name": "baseline",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 3,
+        "opt.dataloader.batch_size": 4,
+        "opt.checkpoint_step": 50,
+        "opt.save_epoch_checkpoints": false,
+        "opt.optimizeropt.params.trar.lr": 1e-05,
+        "opt.modelopt.vit_pretrained": false
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod01_bridge_gated_residual",
+      "agent_task": "mod_bridge_gated_residual",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 3,
+        "opt.dataloader.batch_size": 4,
+        "opt.checkpoint_step": 50,
+        "opt.save_epoch_checkpoints": false,
+        "opt.optimizeropt.params.trar.lr": 1e-05,
+        "opt.modelopt.vit_pretrained": false
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod02_cross_modal_pre_norm",
+      "agent_task": "mod_cross_modal_pre_norm",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 3,
+        "opt.dataloader.batch_size": 4,
+        "opt.checkpoint_step": 50,
+        "opt.save_epoch_checkpoints": false,
+        "opt.optimizeropt.params.trar.lr": 1e-05,
+        "opt.modelopt.vit_pretrained": false
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod03_multimodal_fusion_highway",
+      "agent_task": "mod_multimodal_fusion_highway",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 3,
+        "opt.dataloader.batch_size": 4,
+        "opt.checkpoint_step": 50,
+        "opt.save_epoch_checkpoints": false,
+        "opt.optimizeropt.params.trar.lr": 1e-05,
+        "opt.modelopt.vit_pretrained": false
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    }
+  ]
+}

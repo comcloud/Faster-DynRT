@@ -213,7 +213,9 @@ class onerun:
                     pred=self.eval_test("test")
                     self.save_pred_result(pred)
                 
-            if epoch % self.opt['checkpoint_step'] == 0:
+            save_epoch_checkpoints = bool(self.opt.get("save_epoch_checkpoints", True))
+            checkpoint_step = int(self.opt.get("checkpoint_step", 0) or 0)
+            if save_epoch_checkpoints and checkpoint_step > 0 and epoch % checkpoint_step == 0:
                 if len(self.device_ids) > 1:
                     self.save_checkpoint({
                     'epoch': epoch,

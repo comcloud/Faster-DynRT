@@ -1,0 +1,71 @@
+{
+  "project_root": ".",
+  "base_plan": "automation/plan.msd.gpu.pilot.json",
+  "work_dir": "auto_runs/background_controller",
+  "poll_interval_sec": 20,
+  "stall_timeout_sec": 900,
+  "hard_timeout_sec": 21600,
+  "max_attempts_per_experiment": 3,
+  "min_improvement": 0.001,
+  "target_metric": "valid_acc",
+  "target_valid_f1": null,
+  "agent_guidance_file": "automation/agent_research_guidance.zh.md",
+  "agent_skill_files": [
+    "automation/skills/karpathy_autoresearch/SKILL.md",
+    "automation/skills/karpathy_autoresearch/openai.yaml"
+  ],
+  "agent_skill_max_chars": 12000,
+  "post_train_retrain": {
+    "enabled": true,
+    "change_ratio_threshold": 0.01,
+    "poor_metric_threshold": 0.78
+  },
+  "retention": {
+    "enabled": true,
+    "keep_exp_last": 4,
+    "prune_checkpoints": true,
+    "keep_checkpoint_names": [
+      "model_best.pth.tar",
+      "new_model_best.pth.tar"
+    ],
+    "keep_attempt_dirs": 10,
+    "keep_train_log_lines": 1200,
+    "keep_agent_log_lines": 400,
+    "keep_events_lines": 4000,
+    "keep_results_last": 800,
+    "drop_instruction_files": false,
+    "drop_agent_logs": false
+  },
+  "plateau": {
+    "enabled": true,
+    "window": 3,
+    "mode": "relative",
+    "epsilon": 0.01,
+    "poor_metric_threshold": 0.78,
+    "target_files": [
+      "model/DynRT.py",
+      "model/attention/BridgeInfoLayer.py",
+      "model/attention/CrossModalTransformerLayer.py",
+      "model/attention/MultimodalFusionLayer.py"
+    ],
+    "instruction": "Performance has plateaued with very small fluctuations and current quality is still unsatisfactory. Refactor model architecture to increase multimodal reasoning capacity while preserving external APIs and tensor interfaces."
+  },
+  "repair": {
+    "enabled": true,
+    "fallback_target_files": [
+      "model/DynRT.py",
+      "model/attention/BridgeInfoLayer.py",
+      "model/attention/CrossModalTransformerLayer.py",
+      "model/attention/MultimodalFusionLayer.py"
+    ]
+  },
+  "error_patterns": [
+    "Traceback \\(most recent call last\\):",
+    "RuntimeError:",
+    "ValueError:",
+    "CUDA out of memory",
+    "AssertionError:",
+    "FileNotFoundError:",
+    "ConnectionError:"
+  ]
+}

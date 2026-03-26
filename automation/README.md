@@ -134,7 +134,7 @@ export MODEL=gemini:gemini-3.1-flash-lite-preview
 python automation/prepare_bully_images.py \
   --project-root . \
   --image-root /Users/rayss/Public/读研经历/论文/ironyDetection/imageVector2 \
-  --tensor-root /root/autodl-tmp/datasets/msd/tensor \
+  --tensor-root /root/autodl-tmp/ray/data/datasets/msd/tensor \
   --source prepared \
   --size 224
 ```
@@ -145,9 +145,9 @@ python automation/prepare_bully_images.py \
 
 ```bash
 export AGENT_BACKEND=openai_api
-export BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-export KEY=你的key
-export MODEL=gemini:gemini-3.1-flash-lite-preview
+export BASE_URL=http://43.139.186.69:8088/v1
+export KEY=any-string
+export MODEL=Qwen/Qwen3-235B-A22B-Instruct-2507
 python automation/auto_agent_experiment.py --plan automation/plan.module10.msd.local.json
 ```
 
@@ -182,6 +182,67 @@ python automation/auto_self_improve.py \
   --strategy automation/self_improve.strategy.msd.local.json
 ```
 
+## 后台智能体控制器
+
+已提供常驻控制器：`automation/background_controller.py`
+
+它和一次性批跑不同，会在后台持续做这些事：
+
+- 轮询训练日志和进程状态
+- 遇到 `Traceback`、`RuntimeError`、卡死超时等情况时主动停训
+- 调用智能体按失败日志修补目标文件
+- 自动重试当前实验
+- 如果新结果没有超过当前最优，会把代码恢复到已接受的最好版本
+- 若指标进入平台期（波动很小）且当前效果仍低，会自动触发一次“模型结构重构”任务
+- 持续写出状态和决策记录，便于断线后恢复观察
+
+策略模板：
+
+`automation/background_controller.strategy.example.json`
+
+平台期配置项（在策略文件里）：
+
+- `plateau.window`：用最近多少次结果判定平台期
+- `plateau.mode`：`absolute`（绝对差）或 `relative`（相对变化率）
+- `plateau.epsilon`：平台期阈值；当 `mode=relative` 时，`0.01` 表示变化率低于 1%
+- `plateau.poor_metric_threshold`：若最佳指标仍低于该阈值，触发模型重构
+- `plateau.target_files`：平台期重构允许修改的模型文件
+- `post_train_retrain.*`：每次训练完成后判定是否“记录本次结果并触发改模型重训”
+  - `change_ratio_threshold=0.01` 表示相邻两次指标变化率低于 1%
+  - `poor_metric_threshold` 表示当前指标仍低于可接受阈值
+- `agent_guidance_file`：每次智能体改模型前自动注入的全局研究指导（例如 `automation/agent_research_guidance.zh.md`）
+- `agent_skill_files`：可附加多个 skill 文件（如 `SKILL.md` / `openai.yaml`），会在每次改模指令前自动注入
+- `agent_skill_max_chars`：skill 注入的最大字符预算，防止提示词过长
+- `retention.*`：自动留存策略，控制磁盘增长
+  - `keep_exp_last`：只保留最近 N 个训练 exp 目录（外加当前最佳）
+  - `prune_checkpoints=true`：每个 exp 只保留 best checkpoint（默认 `model_best.pth.tar`）
+  - `keep_attempt_dirs`：只保留最近 N 个控制器 attempt 目录
+  - `keep_train_log_lines` / `keep_agent_log_lines`：日志只保留最新若干行
+  - `keep_events_lines`：`events.jsonl` 只保留最新若干行
+  - `keep_results_last`：`results.json` 只保留最近若干条尝试记录
+  - `drop_instruction_files` / `drop_agent_logs`：是否删除指令文件或 agent 日志
+
+常用输出：
+
+- `controller_state.json`：当前运行状态、当前实验、PID、最佳结果
+- `results.json`：每次尝试的训练结果
+- `events.jsonl`：按时间顺序的控制器决策日志
+
+远程后台运行示例：
+
+```bash
+cd /root/autodl-tmp/ray/projects/dynrt_bridge_main
+source /root/miniconda3/etc/profile.d/conda.sh
+conda activate dynrt39_fresh
+export AGENT_BACKEND=openai_api
+export BASE_URL=http://43.139.186.69:8088/v1
+export KEY=any-string
+export MODEL=Qwen/Qwen3-235B-A22B-Instruct-2507
+nohup python automation/background_controller.py \
+  --strategy automation/background_controller.strategy.example.json \
+  > auto_runs/background_controller.launch.log 2>&1 < /dev/null &
+```
+
 ## 4. train.py 的兼容变更
 
 `train.py` 现在支持：
@@ -191,3 +252,8 @@ python train.py config/DynRT.json
 ```
 
 如果不传参数，仍会使用默认 `config/DynRT.json`（也支持环境变量 `DYNRT_CONFIG` 作为默认值）。
+
+另外新增：
+
+- `opt.save_epoch_checkpoints`（默认 `true`）：是否保存按 epoch 的周期 checkpoint。
+- 当设置为 `false` 时，仅保留 `model_best.pth.tar`，可显著减少磁盘占用。
