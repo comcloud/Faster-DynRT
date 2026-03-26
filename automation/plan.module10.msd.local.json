@@ -1,0 +1,185 @@
+{
+  "project_root": ".",
+  "base_config": "config/DynRT.msd.local.template.json",
+  "train_script": "train.py",
+  "python_bin": "python",
+  "output_dir": "auto_runs/module10_msd_local",
+  "agent": {
+    "command": "python automation/agent_adapter.py --workspace {workspace} --instruction-file {instruction_file} --task-name {task_name}",
+    "timeout_sec": 5400
+  },
+  "agent_tasks": [
+    {
+      "name": "mod_bridge_gated_residual",
+      "instruction": "Modify bridge feature fusion with gated residual mixing in BridgeInfoLayer. Keep input/output tensor shapes and external interfaces unchanged.",
+      "target_files": [
+        "model/attention/BridgeInfoLayer.py",
+        "model/DynRT.py"
+      ]
+    },
+    {
+      "name": "mod_cross_modal_pre_norm",
+      "instruction": "Refactor CrossModalTransformerLayer to pre-norm style with residual stability improvements. Keep APIs and tensor dimensions unchanged.",
+      "target_files": [
+        "model/attention/CrossModalTransformerLayer.py",
+        "model/DynRT.py"
+      ]
+    },
+    {
+      "name": "mod_text_sparse_topk_temp",
+      "instruction": "Improve TextSparseAttention by adding temperature-scaled top-k masking path with safe fallback. Keep signatures and output shapes unchanged.",
+      "target_files": [
+        "model/attention/TextSparseAttention.py",
+        "model/attention/MHAtt.py"
+      ]
+    },
+    {
+      "name": "mod_image_sparse_topk_temp",
+      "instruction": "Improve ImageSparseAttention with temperature-scaled top-k sparsification and numerical stability guards. Keep APIs unchanged.",
+      "target_files": [
+        "model/attention/ImageSparseAttention.py",
+        "model/attention/MHAtt.py"
+      ]
+    },
+    {
+      "name": "mod_guide_attention_dual_gate",
+      "instruction": "Enhance GuideAttentionLayer with dual-gate fusion between guided and raw attention features. Keep module I/O contract unchanged.",
+      "target_files": [
+        "model/attention/GuideAttentionLayer.py",
+        "model/attention/GuideAttention.py"
+      ]
+    },
+    {
+      "name": "mod_multimodal_fusion_highway",
+      "instruction": "Add highway-style fusion in MultimodalFusionLayer to stabilize deep feature composition. Keep all call sites compatible.",
+      "target_files": [
+        "model/attention/MultimodalFusionLayer.py",
+        "model/DynRT.py"
+      ]
+    },
+    {
+      "name": "mod_bridge_biaffine_norm",
+      "instruction": "Improve biaffine bridge branch with normalization and activation redesign for stable gradients. Do not change output interface.",
+      "target_files": [
+        "model/attention/BridgeInfoLayer.py"
+      ]
+    },
+    {
+      "name": "mod_dynamic_router_entropy_reg",
+      "instruction": "Adjust dynamic routing path to reduce over-confident collapse, adding lightweight entropy-friendly gating logic in model forward. Keep external behavior compatible.",
+      "target_files": [
+        "model/DynRT.py",
+        "model/TRAR/trar.py"
+      ]
+    },
+    {
+      "name": "mod_classifier_fusion_head",
+      "instruction": "Redesign final classifier fusion head to combine text/image/global features via lightweight two-stage projection. Keep final binary logits output shape unchanged.",
+      "target_files": [
+        "model/TRAR/cls_layer.py",
+        "model/DynRT.py"
+      ]
+    }
+  ],
+  "experiments": [
+    {
+      "name": "baseline",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod01_bridge_gated_residual",
+      "agent_task": "mod_bridge_gated_residual",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod02_cross_modal_pre_norm",
+      "agent_task": "mod_cross_modal_pre_norm",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod03_text_sparse_topk_temp",
+      "agent_task": "mod_text_sparse_topk_temp",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod04_image_sparse_topk_temp",
+      "agent_task": "mod_image_sparse_topk_temp",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod05_guide_attention_dual_gate",
+      "agent_task": "mod_guide_attention_dual_gate",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod06_multimodal_fusion_highway",
+      "agent_task": "mod_multimodal_fusion_highway",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod07_bridge_biaffine_norm",
+      "agent_task": "mod_bridge_biaffine_norm",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod08_dynamic_router_entropy_reg",
+      "agent_task": "mod_dynamic_router_entropy_reg",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod09_classifier_fusion_head",
+      "agent_task": "mod_classifier_fusion_head",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    }
+  ]
+}

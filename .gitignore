@@ -3,9 +3,14 @@ model/roberta
 model/albert
 model/bert
 model/xlnet
+roberta/
+vit/
 exp
+auto_runs/
 input/sentiment
 input/image_tensor
 
 .idea
 checkpoint
+__pycache__/
+*/__pycache__/

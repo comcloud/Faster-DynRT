@@ -31,6 +31,46 @@ def load_file(filename):
         ret = pickle.load(filehandle)
         return ret
 
+
+def safe_metric_call(fn, *args, **kwargs):
+    try:
+        return float(fn(*args, **kwargs))
+    except Exception:
+        return 0.0
+
+
+def build_metric_dict(y_true, y_pred, running_loss, dataloader_len, batch_size):
+    epoch_loss = running_loss / (dataloader_len * batch_size)
+    conf = confusion_matrix(y_true, y_pred)
+    accuracy = safe_metric_call(accuracy_score, y_true, y_pred)
+    precision_macro = safe_metric_call(precision_score, y_true, y_pred, average="macro", zero_division=0)
+    recall_macro = safe_metric_call(recall_score, y_true, y_pred, average="macro", zero_division=0)
+    f1_macro = safe_metric_call(f1_score, y_true, y_pred, average="macro", zero_division=0)
+    precision_micro = safe_metric_call(precision_score, y_true, y_pred, average="micro", zero_division=0)
+    recall_micro = safe_metric_call(recall_score, y_true, y_pred, average="micro", zero_division=0)
+    f1_micro = safe_metric_call(f1_score, y_true, y_pred, average="micro", zero_division=0)
+    precision_binary = safe_metric_call(precision_score, y_true, y_pred, zero_division=0)
+    recall_binary = safe_metric_call(recall_score, y_true, y_pred, zero_division=0)
+    f1_binary = safe_metric_call(f1_score, y_true, y_pred, zero_division=0)
+    return {
+        "confusion_matrix": conf.tolist(),
+        "loss": float(epoch_loss),
+        "accuracy": accuracy,
+        "precision_macro": precision_macro,
+        "recall_macro": recall_macro,
+        "f1_macro": f1_macro,
+        "precision_micro": precision_micro,
+        "recall_micro": recall_micro,
+        "f1_micro": f1_micro,
+        "precision_binary": precision_binary,
+        "recall_binary": recall_binary,
+        "f1_binary": f1_binary,
+        # backward compatibility
+        "f1_score": f1_macro,
+        "precision_score": precision_macro,
+        "recall_score": recall_macro
+    }
+
 class KLDivLoss(nn.Module):
     def __init__(self, p_dim, q_dim):
         super(KLDivLoss, self).__init__()
@@ -107,49 +147,66 @@ class onerun:
         tb_logger.configure(self.opt["tb_logger_path"], flush_secs=5)
 
     def start(self):
-        best_valid_f1 = 0.0
+        best_valid_metric = -1.0
+        best_epoch = -1
+        metrics_history = []
         if len(self.device_ids) > 1:
             self.model = nn.DataParallel(self.model, device_ids=self.device_ids)
         for epoch in range(1,self.total_epoch+1):
             self.incorrect_position = {'train': [], 'valid': [], 'test': []}
             # test = self.eval("test", epoch=epoch)
             train=self.train(epoch)
-            tb_logger.log_value('pre_train', train["precision_score"], step=epoch)
-            tb_logger.log_value('recall_train', train["recall_score"], step=epoch)
-            tb_logger.log_value('f1_train', train["f1_score"], step=epoch)
+            tb_logger.log_value('pre_train', train["precision_macro"], step=epoch)
+            tb_logger.log_value('recall_train', train["recall_macro"], step=epoch)
+            tb_logger.log_value('f1_train', train["f1_macro"], step=epoch)
+            tb_logger.log_value('f1_micro_train', train["f1_micro"], step=epoch)
             tb_logger.log_value('acc_train', train["accuracy"], step=epoch)
             tb_logger.log_value('loss_train', train["loss"], step=epoch)
             valid=self.eval("valid")
-            tb_logger.log_value('pre_val', valid["precision_score"], step=epoch)
-            tb_logger.log_value('recall_val', valid["recall_score"], step=epoch)
-            tb_logger.log_value('f1_val', valid["f1_score"], step=epoch)
+            tb_logger.log_value('pre_val', valid["precision_macro"], step=epoch)
+            tb_logger.log_value('recall_val', valid["recall_macro"], step=epoch)
+            tb_logger.log_value('f1_val', valid["f1_macro"], step=epoch)
+            tb_logger.log_value('f1_micro_val', valid["f1_micro"], step=epoch)
             tb_logger.log_value('acc_val', valid["accuracy"], step=epoch)
             tb_logger.log_value('loss_val', valid["loss"], step=epoch)
-            is_best = valid["f1_score"] >= best_valid_f1
-            best_valid_f1 = max(valid["f1_score"], best_valid_f1)
+            current_metric = valid.get(self.best_metric_key, valid["f1_macro"])
+            is_best = current_metric >= best_valid_metric
+            if is_best:
+                best_valid_metric = current_metric
+                best_epoch = epoch
             if  is_best:
                 self.log.info("save best model for now, epoch:" + str(epoch))
                 if len(self.device_ids) > 1:
                     self.save_best_checkpoint({
                     'epoch': epoch,
                     'model': self.model.module.state_dict(),
-                    'best_f1': best_valid_f1,
+                    'best_metric': best_valid_metric,
                     }, prefix=self.opt["model_savepath"])
                 else:
                     self.save_best_checkpoint({
                     'epoch': epoch,
                     'model': self.model.state_dict(),
-                    'best_f1': best_valid_f1,
+                    'best_metric': best_valid_metric,
                     }, prefix=self.opt["model_savepath"])
+                best_model_payload = {
+                    "best_metric_key": self.best_metric_key,
+                    "best_metric_value": best_valid_metric,
+                    "best_epoch": best_epoch,
+                    "checkpoint_path": self.opt["model_savepath"] + "model_best.pth.tar",
+                    "valid_metrics": valid
+                }
+                with open(self.opt["exp_path"] + "best_model_info.json", "w") as f:
+                    json.dump(best_model_payload, f, indent=2)
             if "test" in self.opt["mode"]:
                 if self.opt["dataloader"]["loaders"]["label"]["test_label"]:
                     test = self.eval("test", epoch=epoch)
-                    tb_logger.log_value('pre_test', test["precision_score"], step=epoch)
-                    tb_logger.log_value('recall_test', test["recall_score"], step=epoch)
-                    tb_logger.log_value('f1_test', test["f1_score"], step=epoch)
+                    tb_logger.log_value('pre_test', test["precision_macro"], step=epoch)
+                    tb_logger.log_value('recall_test', test["recall_macro"], step=epoch)
+                    tb_logger.log_value('f1_test', test["f1_macro"], step=epoch)
+                    tb_logger.log_value('f1_micro_test', test["f1_micro"], step=epoch)
                     tb_logger.log_value('acc_test', test["accuracy"], step=epoch)
                     tb_logger.log_value('loss_test', test["loss"], step=epoch)
-                    if test["f1_score"] > 0.9388:
+                    if test["f1_macro"] > 0.9388:
                         self.log.info("save test_best_model for now, epoch:" + str(epoch))
                     # self.save_pred_result(test["y_pred"])
                 else:
@@ -161,14 +218,28 @@ class onerun:
                     self.save_checkpoint({
                     'epoch': epoch,
                     'model': self.model.module.state_dict(),
-                    'best_f1': best_valid_f1,
+                    'best_metric': best_valid_metric,
                     }, prefix=self.opt["model_savepath"])
                 else:
                     self.save_checkpoint({
                     'epoch': epoch,
                     'model': self.model.state_dict(),
-                    'best_f1': best_valid_f1,
+                    'best_metric': best_valid_metric,
                     }, prefix=self.opt["model_savepath"])
+
+            row = {
+                "epoch": epoch,
+                "best_metric_key": self.best_metric_key,
+                "best_metric_value": best_valid_metric,
+                "best_epoch": best_epoch,
+                "train": train,
+                "valid": valid
+            }
+            if "test" in self.opt["mode"] and self.opt["dataloader"]["loaders"]["label"]["test_label"]:
+                row["test"] = test
+            metrics_history.append(row)
+            with open(self.opt["exp_path"] + "metrics_history.json", "w") as f:
+                json.dump(metrics_history, f, indent=2)
 
             self.train_logger.tb_log(tb_logger, step=epoch)
             with open('exp/incorrect_position.json', 'w') as json_file:
@@ -187,10 +258,18 @@ class onerun:
         predictions_db.to_csv(self.opt["exp_path"] + 'answer.txt', index=False, sep='\t', header=False)
 
     def save_checkpoint(self, state, filename='checkpoint.pth.tar', prefix=''):
-        torch.save(state, prefix + str(state['epoch']) + filename)
+        path = prefix + str(state['epoch']) + filename
+        try:
+            torch.save(state, path)
+        except Exception as e:
+            self.log.warning("save_checkpoint failed: %s, path=%s", e, path)
     
     def save_best_checkpoint(self, state, filename='model_best.pth.tar', prefix=''):
-        torch.save(state, prefix + filename)
+        path = prefix + filename
+        try:
+            torch.save(state, path)
+        except Exception as e:
+            self.log.warning("save_best_checkpoint failed: %s, path=%s", e, path)
         
     def adjust_lr(self, optim, decay_r):
         for param_group in optim.param_groups:
@@ -215,7 +294,11 @@ class onerun:
         print(f'Non-trainable params: {NonTrainable_params}')
 
     def gen_heat_map_prepare(self):
-        state_dict = torch.load("./checkpoint/new_model_best.pth.tar", map_location="cpu")
+        ckpt_path = "./checkpoint/new_model_best.pth.tar"
+        if not os.path.exists(ckpt_path):
+            self.log.info("Skip heat-map prepare, checkpoint not found: %s" % ckpt_path)
+            return
+        state_dict = torch.load(ckpt_path, map_location="cpu")
         self.model.load_state_dict(state_dict['model'])
 
     def save_error_label(self, i, mode, scores, labels):
@@ -244,7 +327,7 @@ class onerun:
 
         self.model.zero_grad()
         # Creates a GradScaler once at the beginning of training.
-        scaler = GradScaler()
+        scaler = GradScaler(enabled=self.use_amp)
         
         for i, batch in tqdm(enumerate(self.dataloaders["train"]), total=len(self.dataloaders["train"])):
                 
@@ -252,7 +335,7 @@ class onerun:
             for key in batch:
                 input[key]=batch[key].to(self.device)
 
-            with autocast():
+            with autocast(enabled=self.use_amp):
                 scores, lang_feat, img_feat, bert_embed_att = self.model(input)
                 self.save_error_label(i, 'train',scores, input['label'])
                 loss = self.loss(scores, input["label"], lang_feat, img_feat)
@@ -306,24 +389,20 @@ class onerun:
             del input, scores, lang_feat, img_feat
         self.model.zero_grad()
 
-        epoch_loss = running_loss / (len(self.dataloaders["train"]) * self.batch_size)
-        epoch_acc = accuracy_score(y_true, y_pred)
-        conf=confusion_matrix(y_true, y_pred)
-        pre = precision_score(y_true, y_pred, average="macro")
-        recall = recall_score(y_true, y_pred, average="macro")
-        f1 = f1_score(y_true, y_pred, average="macro")
-        self.log.info(conf)
-
-
-        self.log.info("train : F1: {:.4f}, Precision: {:.4f}, Recall : {:.4f}, Accuracy: {:.4f}, Loss: {:.4f}.".format(f1, pre, recall, epoch_acc, epoch_loss))
-        return {
-            "confusion_matrix":conf.tolist(),
-            "f1_score":f1.item(),
-            "precision_score":pre.item(),
-            "recall_score":recall.item(),
-            "loss":epoch_loss,
-            "accuracy":epoch_acc
-        }
+        metrics = build_metric_dict(
+            y_true=y_true,
+            y_pred=y_pred,
+            running_loss=running_loss,
+            dataloader_len=len(self.dataloaders["train"]),
+            batch_size=self.batch_size
+        )
+        self.log.info(metrics["confusion_matrix"])
+        self.log.info(
+            "train : ACC: {:.4f}, Micro-F1: {:.4f}, Macro-F1: {:.4f}, Loss: {:.4f}.".format(
+                metrics["accuracy"], metrics["f1_micro"], metrics["f1_macro"], metrics["loss"]
+            )
+        )
+        return metrics
 
 
 
@@ -372,18 +451,14 @@ class onerun:
             # visual.visualize_and_save_tsne_2d_withgate(all_feature, all_labels,
             #                                            '/Users/rayss/pythonProjects/DynRT/checkpoint/img.png')
 
-        epoch_loss = running_loss / (len(self.dataloaders[mode]) * self.batch_size)
-
-        epoch_acc = accuracy_score(y_true, y_pred)
-
-        conf=confusion_matrix(y_true, y_pred)
-        pre_macro = precision_score(y_true, y_pred, average="macro")
-        recall_macro = recall_score(y_true, y_pred, average="macro")
-        f1_macro = f1_score(y_true, y_pred, average="macro")
-        pre = precision_score(y_true, y_pred)
-        recall = recall_score(y_true, y_pred)
-        f1 = f1_score(y_true, y_pred)
-        self.log.info(conf)
+        metrics = build_metric_dict(
+            y_true=y_true,
+            y_pred=y_pred,
+            running_loss=running_loss,
+            dataloader_len=len(self.dataloaders[mode]),
+            batch_size=self.batch_size
+        )
+        self.log.info(metrics["confusion_matrix"])
         
         # save predict 
         if epoch:
@@ -391,22 +466,25 @@ class onerun:
             np.save(self.predict_save_score_path[:-4] + str(epoch) +'.npy', np.array(scores_list))
         
         if "pth.tar" in self.info["test_on_checkpoint"]:
-            print(mode+": F1: {:.4f}, Precision: {:.4f}, Recall : {:.4f}, Accuracy: {:.4f}, Loss: {:.4f}.".format(f1, pre, recall, epoch_acc, epoch_loss))
-            self.log.info(mode+": F1: {:.4f}, Precision: {:.4f}, Recall : {:.4f}, Accuracy: {:.4f}, Loss: {:.4f}.".format(f1, pre, recall, epoch_acc, epoch_loss))
+            print(
+                mode + ": ACC: {:.4f}, Micro-F1: {:.4f}, Macro-F1: {:.4f}, Loss: {:.4f}.".format(
+                    metrics["accuracy"], metrics["f1_micro"], metrics["f1_macro"], metrics["loss"]
+                )
+            )
+            self.log.info(
+                mode + ": ACC: {:.4f}, Micro-F1: {:.4f}, Macro-F1: {:.4f}, Loss: {:.4f}.".format(
+                    metrics["accuracy"], metrics["f1_micro"], metrics["f1_macro"], metrics["loss"]
+                )
+            )
             return y_true, y_pred
 
-        self.log.info(mode+": F1: {:.4f}, Precision: {:.4f}, Recall : {:.4f}, Accuracy: {:.4f}, Loss: {:.4f}.".format(f1, pre, recall, epoch_acc, epoch_loss))
-        self.log.info(mode+"-macro: F1: {:.4f}, Precision: {:.4f}, Recall : {:.4f}.".format(f1_macro, pre_macro, recall_macro))
-        return {
-            "confusion_matrix":conf.tolist(),
-            "f1_score":f1.item(),
-            "precision_score":pre.item(),
-            "recall_score":recall.item(),
-            "loss":epoch_loss,
-            "accuracy":epoch_acc,
-            "y_pred":y_pred
-
-        }
+        self.log.info(
+            mode + ": ACC: {:.4f}, Micro-F1: {:.4f}, Macro-F1: {:.4f}, Loss: {:.4f}.".format(
+                metrics["accuracy"], metrics["f1_micro"], metrics["f1_macro"], metrics["loss"]
+            )
+        )
+        metrics["y_pred"] = y_pred
+        return metrics
 
     
 
@@ -474,6 +552,10 @@ class onerun:
             self.opt["clip"]=1
         self.clip=self.opt["clip"]
         self.log.info("Clip: %s" % self.clip)
+        self.use_amp = bool(self.opt.get("use_amp", False))
+        self.log.info("Use AMP: %s" % self.use_amp)
+        self.best_metric_key = self.opt.get("best_metric_key", "f1_macro")
+        self.log.info("Best metric key: %s" % self.best_metric_key)
         self.predict_save_path = self.opt["exp_path"] + 'predict.npz'
         self.predict_save_score_path = self.opt["exp_path"] + self.opt["name"] +'-predict-score.npy'
 
@@ -742,14 +824,12 @@ class Dataset(torch.utils.data.Dataset):
 
 
 
-def main():
-    # print(args)
-    # assert(len(args)==2)
-    # fname=args[1]
-    fname='config/DynRT.json'
-    # fname = 'config/DynRT.json'
+def main(args=None):
+    args = sys.argv if args is None else args
+    default_config = os.environ.get("DYNRT_CONFIG", "config/DynRT.json")
+    fname = args[1] if len(args) > 1 else default_config
     assert(os.path.exists(fname) and fname.endswith(".json"))
-    OneRun=onerun(fname)
+    OneRun = onerun(fname)
     OneRun.start()
 
     

@@ -1,0 +1,46 @@
+{
+  "project_root": ".",
+  "base_config": "config/DynRT.json",
+  "train_script": "train.py",
+  "python_bin": "python",
+  "output_dir": "auto_runs/first_batch",
+  "agent": {
+    "command": "",
+    "timeout_sec": 1800
+  },
+  "agent_tasks": [
+    {
+      "name": "improve_bridge_attention",
+      "instruction": "Modify model/DynRT.py and model/attention/* to improve multimodal bridge attention stability. Keep interfaces unchanged and maintain trainability.",
+      "target_files": [
+        "model/DynRT.py",
+        "model/attention/BridgeInfoLayer.py",
+        "model/attention/CrossModalTransformerLayer.py"
+      ]
+    }
+  ],
+  "experiments": [
+    {
+      "name": "baseline",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "agent_v1",
+      "agent_task": "improve_bridge_attention",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 2,
+        "opt.optimizeropt.params.trar.lr": 1e-05
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    }
+  ]
+}

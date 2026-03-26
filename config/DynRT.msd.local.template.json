@@ -1,0 +1,148 @@
+{
+  "info": {
+    "name": "DynRT",
+    "log": {
+      "name": ""
+    },
+    "device": [
+      0
+    ],
+    "test_on_checkpoint": "none",
+    "train_on_checkpoint": "none"
+  },
+  "opt": {
+    "seed": 2,
+    "dataloader": {
+      "requires": {
+        "tokenizer_roberta": {
+          "path": "/Users/rayss/pythonProjects/pretrained_model/roberta"
+        },
+        "tokenizer_albert": {
+          "path": "/Users/rayss/pythonProjects/pretrained_model/albert"
+        },
+        "tokenizer_bert": {
+          "path": "/Users/rayss/pythonProjects/pretrained_model/bert"
+        },
+        "tokenizer_xlnet": {
+          "path": "/Users/rayss/pythonProjects/pretrained_model/xlnet"
+        },
+        "tokenizer": "tokenizer_roberta"
+      },
+      "loaders": {
+        "text": {
+          "source": "prepared",
+          "data_path": "input/prepared_aligned/",
+          "data_2_path": "input/MSD2/",
+          "data_bully_path": "input/bully/",
+          "len": 100,
+          "pad": 1,
+          "att_file_path": "input/prepared_aligned/att/",
+          "mould": "A photo containing the {att_0}, {att_1}, {att_2}, {att_3} and {att_4}"
+        },
+        "img": {
+          "source": "prepared",
+          "data_path": "input/prepared_aligned/",
+          "data_2_path": "input/MSD2/",
+          "data_bully_path": "input/bully/",
+          "transform_image": "/Users/rayss/Public/读研经历/论文/ironyDetection/image_tensor_224/",
+          "image_root": "/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector2/",
+          "image_resize": 224
+        },
+        "label": {
+          "source": "prepared",
+          "data_path": "input/prepared_aligned/",
+          "data_2_path": "input/MSD2/",
+          "data_bully_path": "input/bully/",
+          "test_label": true
+        }
+      },
+      "batch_size": 32,
+      "pin_memory": true,
+      "num_workers": 0,
+      "shuffle": true
+    },
+    "mode": [
+      "train",
+      "valid",
+      "test"
+    ],
+    "checkpoint_step": 50,
+    "modelopt": {
+      "name": "DynRT",
+      "input1": "text",
+      "input2": "img",
+      "input3": "text_mask",
+      "input4": "att",
+      "input5": "att_mask",
+      "layer": 4,
+      "tau_max": 10,
+      "ORDERS": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "IMG_SCALE": 7,
+      "dropout": 0.5,
+      "hidden_size": 768,
+      "ffn_size": 768,
+      "multihead": 2,
+      "routing": "hard",
+      "BINARIZE": false,
+      "len": 100,
+      "glimpses": 1,
+      "mlp_size": 768,
+      "output_size": 768,
+      "orders": 4,
+      "pooling": "avg",
+      "classifier": "both",
+      "model": "model_roberta",
+      "model_roberta": "/Users/rayss/pythonProjects/pretrained_model/roberta",
+      "model_albert": "/Users/rayss/pythonProjects/pretrained_model/albert",
+      "model_bert": "/Users/rayss/pythonProjects/pretrained_model/bert",
+      "model_xlnet": "/Users/rayss/pythonProjects/pretrained_model/xlnet",
+      "roberta_layer": 1,
+      "vitmodel": "vit_base_patch32_224",
+      "finetune": false
+    },
+    "optimizeropt": {
+      "name": "Adam",
+      "lr": 1e-06,
+      "weight_decay": 0.01,
+      "params": {
+        "bertl_text": {
+          "lr": 3e-07
+        },
+        "vit": {
+          "lr": 3e-07,
+          "weight_decay": 0.01
+        },
+        "trar": {
+          "lr": 2e-05,
+          "weight_decay": 0.01
+        },
+        "bridge_info_layer.image_biaff_trans": {
+          "lr": 3e-04,
+          "weight_decay": 0.01
+        },
+        "bridge_info_layer.dynamic_net": {
+          "lr": 1e-04,
+          "weight_decay": 0.01
+        },
+        "cross_modal_transformer_layer": {
+          "lr": 1e-04,
+          "weight_decay": 0.01
+        },
+        "classifier": {
+          "lr": 3e-04,
+          "weight_decay": 0.01
+        }
+      }
+    },
+    "lossopt": {
+      "name": "LabelSmoothCrossEntropyLoss"
+    },
+    "total_epoch": 15,
+    "clip": 10
+  }
+}

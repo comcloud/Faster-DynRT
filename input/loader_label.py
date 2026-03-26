@@ -28,27 +28,28 @@ class loader_label:
         self.require=[]
 
     def prepare(self,input,opt):
+        source = opt.get("source", "bully")
         if opt["test_label"]:
-            self.label ={
-                "train":load_file(opt["data_path"] + "train_labels"),
-                "test":load_file(opt["data_path"] + "test_labels"),
-                "valid":load_file(opt["data_path"] + "valid_labels")
-            }
-            # self.label2 = {
-            #     "train": load_2_file(opt["data_2_path"] + "train.json"),
-            #     "test": load_2_file(opt["data_2_path"] + "test.json"),
-            #     "valid": load_2_file(opt["data_2_path"] + "valid.json")
-            # }
-            # for m in ['train', 'test', 'valid']:
-            #     print('-----------' + m + '--------------')
-            #     diff_indexes = list(filter(lambda i: self.label[m][i] != self.label2[m][i], range(len(self.label[m]))))
-            #     diff_indexes = [i + 1 for i in diff_indexes]
-            #     print(diff_indexes)
-            # self.label = {
-            #     "train": load_bully_file(opt["data_bully_path"] + "train_label.txt"),
-            #     "test": load_bully_file(opt["data_bully_path"] + "test_label.txt"),
-            #     "valid": load_bully_file(opt["data_bully_path"] + "valid_label.txt")
-            # }
+            if source == "prepared":
+                self.label = {
+                    "train": load_file(opt["data_path"] + "train_labels"),
+                    "test": load_file(opt["data_path"] + "test_labels"),
+                    "valid": load_file(opt["data_path"] + "valid_labels")
+                }
+            elif source == "msd2":
+                self.label = {
+                    "train": load_2_file(opt["data_2_path"] + "train.json"),
+                    "test": load_2_file(opt["data_2_path"] + "test.json"),
+                    "valid": load_2_file(opt["data_2_path"] + "valid.json")
+                }
+            elif source == "bully":
+                self.label = {
+                    "train": load_bully_file(opt["data_bully_path"] + "train_label.txt"),
+                    "test": load_bully_file(opt["data_bully_path"] + "test_label.txt"),
+                    "valid": load_bully_file(opt["data_bully_path"] + "valid_label.txt")
+                }
+            else:
+                raise ValueError(f"Unsupported label loader source: {source}")
 
         else:
             self.label ={
@@ -57,7 +58,7 @@ class loader_label:
             }
 
     def get(self,result,mode,index):
-        result["label"]=self.label[mode][index]
+        result["label"]=int(self.label[mode][index])
         # result["index"]=index
 
     def getlength(self,mode):
