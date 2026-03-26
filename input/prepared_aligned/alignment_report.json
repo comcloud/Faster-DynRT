@@ -1,0 +1,22 @@
+{
+  "splits": {
+    "train": {
+      "raw": 19816,
+      "kept": 18653,
+      "dropped": 1163
+    },
+    "valid": {
+      "raw": 2410,
+      "kept": 2274,
+      "dropped": 136
+    },
+    "test": {
+      "raw": 2409,
+      "kept": 2280,
+      "dropped": 129
+    }
+  },
+  "total_raw": 24635,
+  "total_kept": 23207,
+  "total_dropped": 1428
+}

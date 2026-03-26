@@ -1,0 +1,67 @@
+{
+  "project_root": ".",
+  "base_config": "config/gpu_e2e_smoke.local_roberta.json",
+  "train_script": "train.py",
+  "python_bin": "python",
+  "output_dir": "auto_runs/real_quick_gpu",
+  "agent": {
+    "command": "python automation/agent_adapter.py --workspace {workspace} --instruction-file {instruction_file} --task-name {task_name}",
+    "timeout_sec": 1800
+  },
+  "experiments": [
+    {
+      "name": "baseline",
+      "config_overrides": {
+        "opt.seed": 2
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "param_lr_5e6",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.optimizeropt.lr": 5e-06
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "param_dropout_03",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.modelopt.dropout": 0.3
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "param_trar_lr_1e5",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.optimizeropt.params.trar.lr": 1e-05
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "param_batch_8",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.dataloader.batch_size": 8
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    }
+  ],
+  "cleanup": {
+    "enabled": true,
+    "keep_exp_last": 6,
+    "prune_checkpoints": true
+  }
+}

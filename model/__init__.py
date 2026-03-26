@@ -18,5 +18,5 @@ _loss={
     "CrossentropyLoss_ContrastiveLoss": build_CrossentropyLoss_ContrastiveLoss,
     "Crossentropy_Loss_weighted": build_CrossEntropyLoss_weighted,
     "LabelSmoothCrossEntropyLoss": build_label_smooth_cross_entropy_loss,
-    "clip_loss" : CLIPLoss()
+    "clip_loss" : CLIPLoss
 }

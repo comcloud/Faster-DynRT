@@ -1,0 +1,44 @@
+{
+  "project_root": ".",
+  "base_config": "config/DynRT.msd.local.template.json",
+  "train_script": "automation/mock_train.py",
+  "python_bin": "python",
+  "output_dir": "auto_runs/smoke_local",
+  "agent": {
+    "command": "python automation/agent_adapter.py --workspace {workspace} --instruction-file {instruction_file} --task-name {task_name}",
+    "timeout_sec": 60
+  },
+  "agent_tasks": [
+    {
+      "name": "smoke_model_edit",
+      "instruction": "Smoke test task. Do not change training logic. Keep code compilable.",
+      "target_files": [
+        "model/DynRT.py"
+      ]
+    }
+  ],
+  "experiments": [
+    {
+      "name": "baseline_smoke",
+      "config_overrides": {
+        "mock.valid_f1": 0.8000,
+        "mock.test_f1": 0.7900
+      }
+    },
+    {
+      "name": "model_smoke",
+      "agent_task": "smoke_model_edit",
+      "config_overrides": {
+        "mock.valid_f1": 0.8100,
+        "mock.test_f1": 0.8050
+      }
+    },
+    {
+      "name": "param_smoke",
+      "config_overrides": {
+        "mock.valid_f1": 0.8070,
+        "mock.test_f1": 0.8040
+      }
+    }
+  ]
+}

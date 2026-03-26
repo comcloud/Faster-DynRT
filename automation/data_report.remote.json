@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-03-26T16:11:35",
+  "paths": {
+    "project_root": "/root/autodl-tmp/ray/projects/dynrt_bridge_main",
+    "dataset_root": "/root/autodl-tmp/ray/data/datasets/msd",
+    "images_root": "/root/autodl-tmp/ray/data/datasets/msd/images/imageVector2",
+    "tensor_root": "/root/autodl-tmp/ray/data/datasets/msd/tensor",
+    "controller_state": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/background_controller/controller_state.json",
+    "controller_events": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/background_controller/events.jsonl",
+    "current_train_log": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/msd_gpu_pilot_v2/01_baseline_attempt1/train.log"
+  },
+  "counts": {
+    "images_files": 24638,
+    "tensor_npy_files": 23207,
+    "compressed_files_under_dataset": 0
+  },
+  "prepared_aligned": {
+    "train_ids": 18653,
+    "valid_ids": 2274,
+    "test_ids": 2280
+  }
+}

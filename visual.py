@@ -47,8 +47,8 @@ def gen_image_heat_map(model, tokenizer_roberta):
     # target_layers = [self.model.vit.blocks[-1].norm1]
     target_layers = [model.cross_modal_transformer_layer.cross_attention.strategy.do_guide.image_norm]
     # load image
-    # image_root = r"/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector2/"
-    image_root = r"/Users/rayss/Public/读研经历/论文/ironyDetection/imageVector/"
+    # image_root = r"/ironyDetection/imageVector2/"
+    image_root = r"/ironyDetection/imageVector/"
     files = os.listdir(image_root)
     train_ids = load_file("input/prepared_clean/train_id")
     valid_ids = load_file("input/prepared_clean/valid_id")
@@ -78,14 +78,6 @@ def gen_image_heat_map(model, tokenizer_roberta):
 def do_gen_image_heat_map(model, target_layers, img_path, file_name, train_ids, train_texts, valid_ids, valid_texts,
                           test_ids,
                           test_texts, att_dict, tokenizer_roberta):
-    # model = vit_base_patch16_224()
-    # 链接: https://pan.baidu.com/s/1zqb08naP0RPqqfSXfkB2EA  密码: eu9f
-    # weights_path = "./vit_base_patch16_224.pth"
-    # model.load_state_dict(torch.load(weights_path, map_location="cpu"))
-    # Since the final classification is done on the class token computed in the last attention block,
-    # the output will not be affected by the 14x14 channels in the last layer.
-    # The gradient of the output with respect to them, will be 0!
-    # We should chose any layer before the final attention block.
     # 读取文本：截断file_name获取text_id，从train_id,test_id,valid_id中查询，得到其中的位置索引；根据此索引从对应的text中获取
     text_id = file_name.split('.')[0]
     try:
@@ -127,7 +119,7 @@ def do_gen_image_heat_map(model, target_layers, img_path, file_name, train_ids, 
         plt.xticks([])
         plt.yticks([])
         plt.imshow(visualization)
-        plt.savefig("/Users/rayss/Public/读研经历/论文/ironyDetection/ACM英文论文/heat_map/" + file_name, dpi=300)
+        plt.savefig("/ironyDetection/ACM英文论文/heat_map/" + file_name, dpi=300)
         # plt.savefig("/Users/rayss/pythonProjects/DynRT/checkpoint/new/heat_map/" + file_name, dpi=300)
     except:
         pass

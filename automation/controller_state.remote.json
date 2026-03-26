@@ -1,0 +1,8 @@
+{
+  "status": "running",
+  "experiment": "baseline",
+  "attempt": 1,
+  "pid": 19900,
+  "run_root": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/msd_gpu_pilot_v2",
+  "work_root": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/background_controller"
+}

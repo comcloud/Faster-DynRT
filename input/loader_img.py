@@ -113,27 +113,46 @@ class loader_img:
                 return path
         return None
 
+    def _build_tensor_from_image(self, sample_id, tensor_path):
+        image_path = self._resolve_image_path(sample_id)
+        if image_path is None:
+            raise FileNotFoundError(
+                f"Missing image tensor for '{sample_id}' at '{tensor_path}', and source image not found. "
+                f"Set dataloader.loaders.img.image_root correctly."
+            )
+        if transforms is None:
+            raise RuntimeError("torchvision is required to transform raw images into tensor npy files")
+        image = Image.open(image_path).convert("RGB")
+        transform = transforms.Compose([
+            transforms.Resize((self.image_resize, self.image_resize)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+        image = transform(image)
+        np.save(tensor_path, image.numpy().astype(np.float16))
+        return image
+
+    def _load_tensor(self, sample_id, tensor_path):
+        expected_shape = (3, self.image_resize, self.image_resize)
+        if not os.path.exists(tensor_path):
+            return self._build_tensor_from_image(sample_id, tensor_path)
+
+        try:
+            array = np.load(tensor_path)
+            if array.shape != expected_shape:
+                raise ValueError(f"Invalid cached tensor shape {array.shape}, expected {expected_shape}")
+            return torch.from_numpy(array).float()
+        except Exception:
+            try:
+                os.remove(tensor_path)
+            except OSError:
+                pass
+            return self._build_tensor_from_image(sample_id, tensor_path)
+
     def get(self, result, mode, index):
         sample_id = self.id[mode][index]
         tensor_path = self._resolve_tensor_path(sample_id)
-        if not os.path.exists(tensor_path):
-            image_path = self._resolve_image_path(sample_id)
-            if image_path is None:
-                raise FileNotFoundError(
-                    f"Missing image tensor for '{sample_id}' at '{tensor_path}', and source image not found. "
-                    f"Set dataloader.loaders.img.image_root correctly."
-                )
-            if transforms is None:
-                raise RuntimeError("torchvision is required to transform raw images into tensor npy files")
-            image = Image.open(image_path).convert("RGB")
-            transform = transforms.Compose([
-                transforms.Resize((self.image_resize, self.image_resize)),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ])
-            image = transform(image)
-            np.save(tensor_path, image.numpy())
-        img = torch.from_numpy(np.load(tensor_path))
+        img = self._load_tensor(sample_id, tensor_path)
         result["img"] = img
 
     def add_salt_and_pepper_noise(self, X, noise_factor):

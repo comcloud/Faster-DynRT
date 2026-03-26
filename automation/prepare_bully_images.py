@@ -78,7 +78,7 @@ def main() -> int:
             arr = np.asarray(img, dtype=np.float32) / 255.0
             arr = np.transpose(arr, (2, 0, 1))
             arr = (arr - mean) / std
-            np.save(out_path, arr)
+            np.save(out_path, arr.astype(np.float16))
             ok += 1
         except Exception as exc:  # noqa: BLE001
             missing.append((sid, str(exc)))

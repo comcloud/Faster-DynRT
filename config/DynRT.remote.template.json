@@ -15,16 +15,16 @@
     "dataloader": {
       "requires": {
         "tokenizer_roberta": {
-          "path": "/root/autodl-tmp/models/roberta"
+          "path": "/root/autodl-tmp/ray/pretrained/models/roberta"
         },
         "tokenizer_albert": {
-          "path": "/root/autodl-tmp/models/albert"
+          "path": "/root/autodl-tmp/ray/pretrained/models/albert"
         },
         "tokenizer_bert": {
-          "path": "/root/autodl-tmp/models/bert"
+          "path": "/root/autodl-tmp/ray/pretrained/models/bert"
         },
         "tokenizer_xlnet": {
-          "path": "/root/autodl-tmp/models/xlnet"
+          "path": "/root/autodl-tmp/ray/pretrained/models/xlnet"
         },
         "tokenizer": "tokenizer_roberta"
       },
@@ -44,8 +44,8 @@
           "data_path": "input/prepared_aligned/",
           "data_2_path": "input/MSD2/",
           "data_bully_path": "input/bully/",
-          "transform_image": "/root/autodl-tmp/datasets/msd/tensor/",
-          "image_root": "/root/autodl-tmp/datasets/bully/images/imageVector2/",
+          "transform_image": "/root/autodl-tmp/ray/data/datasets/msd/tensor/",
+          "image_root": "/root/autodl-tmp/ray/data/datasets/msd/images/imageVector2/",
           "image_resize": 224
         },
         "label": {
@@ -97,10 +97,11 @@
       "pooling": "avg",
       "classifier": "both",
       "model": "model_roberta",
-      "model_roberta": "/root/autodl-tmp/models/roberta",
-      "model_albert": "/root/autodl-tmp/models/albert",
-      "model_bert": "/root/autodl-tmp/models/bert",
-      "model_xlnet": "/root/autodl-tmp/models/xlnet",
+      "model_roberta": "/root/autodl-tmp/ray/pretrained/models/roberta",
+      "vit_path": "/root/autodl-tmp/ray/pretrained/models/vit",
+      "model_albert": "/root/autodl-tmp/ray/pretrained/models/albert",
+      "model_bert": "/root/autodl-tmp/ray/pretrained/models/bert",
+      "model_xlnet": "/root/autodl-tmp/ray/pretrained/models/xlnet",
       "roberta_layer": 1,
       "vitmodel": "vit_base_patch32_224",
       "finetune": false

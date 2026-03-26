@@ -1,0 +1,37 @@
+{
+  "project_root": ".",
+  "base_config": "config/DynRT.msd.local.template.json",
+  "train_script": "automation/mock_train.py",
+  "python_bin": "python",
+  "output_dir": "auto_runs/smoke_agent_probe",
+  "agent": {
+    "command": "python automation/agent_adapter.py --workspace {workspace} --instruction-file {instruction_file} --task-name {task_name}",
+    "timeout_sec": 120
+  },
+  "agent_tasks": [
+    {
+      "name": "probe_model_edit",
+      "instruction": "Append one line 'probe from real agent pipeline' to automation/agent_probe.txt. Keep file valid UTF-8 text.",
+      "target_files": [
+        "automation/agent_probe.txt"
+      ]
+    }
+  ],
+  "experiments": [
+    {
+      "name": "probe_baseline",
+      "config_overrides": {
+        "mock.valid_f1": 0.8010,
+        "mock.test_f1": 0.7920
+      }
+    },
+    {
+      "name": "probe_with_agent",
+      "agent_task": "probe_model_edit",
+      "config_overrides": {
+        "mock.valid_f1": 0.8060,
+        "mock.test_f1": 0.7990
+      }
+    }
+  ]
+}

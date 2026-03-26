@@ -1,0 +1,71 @@
+{
+  "project_root": ".",
+  "base_plan": "automation/plan.module10.msd.local.json",
+  "work_dir": "auto_runs/self_improve_msd_local",
+  "max_rounds": 12,
+  "min_improvement": 0.001,
+  "target_valid_f1": null,
+  "baseline_experiment": {
+    "name": "baseline",
+    "config_overrides": {
+      "opt.seed": 2
+    },
+    "env": {
+      "CUDA_VISIBLE_DEVICES": "0"
+    }
+  },
+  "model_candidates": [
+    {
+      "name": "mod_bridge_gated_residual",
+      "agent_task": "mod_bridge_gated_residual"
+    },
+    {
+      "name": "mod_cross_modal_pre_norm",
+      "agent_task": "mod_cross_modal_pre_norm"
+    },
+    {
+      "name": "mod_text_sparse_topk_temp",
+      "agent_task": "mod_text_sparse_topk_temp"
+    },
+    {
+      "name": "mod_image_sparse_topk_temp",
+      "agent_task": "mod_image_sparse_topk_temp"
+    },
+    {
+      "name": "mod_guide_attention_dual_gate",
+      "agent_task": "mod_guide_attention_dual_gate"
+    },
+    {
+      "name": "mod_multimodal_fusion_highway",
+      "agent_task": "mod_multimodal_fusion_highway"
+    },
+    {
+      "name": "mod_bridge_biaffine_norm",
+      "agent_task": "mod_bridge_biaffine_norm"
+    },
+    {
+      "name": "mod_dynamic_router_entropy_reg",
+      "agent_task": "mod_dynamic_router_entropy_reg"
+    },
+    {
+      "name": "mod_classifier_fusion_head",
+      "agent_task": "mod_classifier_fusion_head"
+    }
+  ],
+  "param_candidates": [
+    {
+      "name": "param_lr_trar_1e-5",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.optimizeropt.params.trar.lr": 1e-05
+      }
+    },
+    {
+      "name": "param_lr_classifier_1e-4",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.optimizeropt.params.classifier.lr": 1e-04
+      }
+    }
+  ]
+}

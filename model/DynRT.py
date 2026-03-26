@@ -1,9 +1,10 @@
 import argparse
+import os
 
 import torch
 import timm
 import model
-from transformers import RobertaModel, CLIPModel
+from transformers import CLIPModel, RobertaModel, ViTModel
 
 from model.TRAR.cls_layer import cls_layer_both
 from model.attention.BridgeInfoLayer import BridgeInfoLayer
@@ -19,6 +20,7 @@ def freeze_layers(model):
         for param in child.parameters():
             param.requires_grad = False
 
+# This file is under auto-experiment control.
 class DynRT(torch.nn.Module):
   # define model elements
     def __init__(self,bertl_text,vit, opt,batch_size=32):
@@ -32,6 +34,7 @@ class DynRT(torch.nn.Module):
         # args = parser.parse_args()
         # self.clip_mamba = get_model(args)
         self.bertl_text = bertl_text
+        self.noise_dropout = torch.nn.Dropout(0.5)
         self.opt = opt
         self.vit = vit
         self.bridge_info_layer = BridgeInfoLayer(opt)
@@ -80,13 +83,33 @@ class DynRT(torch.nn.Module):
         return bert_embed_text
 
     def vit_forward(self,x):
-        x = self.vit.patch_embed(x)
-        cls_token = self.vit.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
-        x = torch.cat((cls_token, x), dim=1)
-        x = self.vit.pos_drop(x + self.vit.pos_embed)
-        x = self.vit.blocks(x)
-        x = self.vit.norm(x)
-        return x[:,1:]
+        if hasattr(self.vit, "patch_embed"):
+            x = self.vit.patch_embed(x)
+            cls_token = self.vit.cls_token.expand(x.shape[0], -1, -1)
+            x = torch.cat((cls_token, x), dim=1)
+            x = self.vit.pos_drop(x + self.vit.pos_embed)
+            x = self.vit.blocks(x)
+            x = self.vit.norm(x)
+            x = x[:,1:]
+        elif hasattr(self.vit, "forward") and self.vit.__class__.__name__.startswith("ViT"):
+            x = self.vit(pixel_values=x).last_hidden_state[:, 1:]
+        else:
+            raise TypeError(f"Unsupported vision backbone: {self.vit.__class__.__name__}")
+
+        token_num = x.shape[1]
+        target_scale = int(self.opt["IMG_SCALE"])
+        target_token_num = target_scale * target_scale
+        if token_num == target_token_num:
+            return x
+
+        token_scale = int(token_num ** 0.5)
+        if token_scale * token_scale != token_num:
+            raise ValueError(f"Unexpected vision token count {token_num}, cannot reshape into square grid")
+
+        x = x.transpose(1, 2).reshape(x.shape[0], x.shape[2], token_scale, token_scale)
+        x = torch.nn.functional.adaptive_avg_pool2d(x, (target_scale, target_scale))
+        x = x.flatten(2).transpose(1, 2)
+        return x
 
     def clip_text_forward(self, x):
         clip_embed_text = self.clip_text.embeddings(x)
@@ -129,7 +152,7 @@ class DynRT(torch.nn.Module):
         # bert_embed_text, img_feat = self.guide_attention_layer(text_att, img_att)
         # bert_embed_text, img_feat = self.tradition_attention_layer.process(bert_embed_text, img_feat)
 
-        # (out1, lang_emb, img_emb) = self.trar(img_feat, bert_embed_text,input[self.input3].unsqueeze(1).unsqueeze(2))
+        (out1, lang_emb, img_emb) = self.trar(img_feat, bert_embed_text,input[self.input3].unsqueeze(1).unsqueeze(2))
 
         out = self.fusion_layer(text_incongruity, image_incongruity, bert_embed_text, img_feat)
         out = self.classifier(out)
@@ -141,16 +164,27 @@ class DynRT(torch.nn.Module):
 
 def build_DynRT(opt,requirements):
     bertl_text = get_text_encoder(opt)
-    
-    # bertl_text = RobertaModel.from_pretrained(opt["roberta_path"])
-    if "vitmodel" not in opt:
-        opt["vitmodel"] = "vit_base_patch32_224"
-    # vit = timm.create_model(opt["vitmodel"], pretrained=True)
-    pretrained_cfg = timm.models.create_model(opt["vitmodel"]).default_cfg
-    pretrained_cfg['file'] = r'/Users/rayss/pythonProjects/pretrained_model/vit/B_32-i21k-300ep-lr_0.001-aug_medium1-wd_0.03-do_0.0-sd_0.0--imagenet2012-steps_20k-lr_0.03-res_224.npz'
-    vit = timm.models.create_model(opt["vitmodel"], pretrained=True, pretrained_cfg=pretrained_cfg)
+
+    vit = get_image_encoder(opt)
 
     return DynRT(bertl_text, vit, opt,requirements['batch_size'])
+
+
+def get_image_encoder(opt):
+    vit_path = opt.get("vit_path")
+    if vit_path and os.path.isdir(vit_path):
+        return ViTModel.from_pretrained(vit_path)
+
+    if "vitmodel" not in opt:
+        opt["vitmodel"] = "vit_base_patch32_224"
+
+    vit_pretrained = bool(opt.get("vit_pretrained", True))
+    if vit_pretrained:
+        try:
+            return timm.models.create_model(opt["vitmodel"], pretrained=True)
+        except Exception:
+            return timm.models.create_model(opt["vitmodel"], pretrained=False)
+    return timm.models.create_model(opt["vitmodel"], pretrained=False)
 
 
 def get_text_encoder(opt):

@@ -35,14 +35,14 @@
                     "data_bully_path" : "input/bully/",
                     "len": 100,
                     "pad": 1,
-                    "att_file_path" : "input/prepared/att/",
+                    "att_file_path" : "input/bully/att/",
                     "mould": "A photo containing the {att_0}, {att_1}, {att_2}, {att_3} and {att_4}"
                 },
                 "img": {
                     "data_path": "input/prepared/",
                     "data_2_path" : "input/MSD2/",
                     "data_bully_path" : "input/bully/",
-                    "transform_image": "image_tensor/"
+                    "transform_image": "/Users/rayss/Public/读研经历/论文/dataset/bully/tensor/"
                 },
                 "label": {
                     "data_path": "input/prepared/",

@@ -1,0 +1,37 @@
+{
+  "project_root": ".",
+  "base_config": "config/DynRT.msd.local.template.json",
+  "train_script": "automation/mock_train.py",
+  "python_bin": "python",
+  "output_dir": "auto_runs/msd_agent_pilot",
+  "agent": {
+    "command": "python automation/agent_adapter.py --workspace {workspace} --instruction-file {instruction_file} --task-name {task_name}",
+    "timeout_sec": 300
+  },
+  "agent_tasks": [
+    {
+      "name": "mod_msd_dynrt_pilot",
+      "instruction": "In model/DynRT.py, add a short comment line near class DynRT indicating this file is under auto-experiment control. Do not change model computation, tensor shapes, outputs, or function signatures.",
+      "target_files": [
+        "model/DynRT.py"
+      ]
+    }
+  ],
+  "experiments": [
+    {
+      "name": "msd_pilot_baseline",
+      "config_overrides": {
+        "mock.valid_f1": 0.8010,
+        "mock.test_f1": 0.7900
+      }
+    },
+    {
+      "name": "msd_pilot_model_edit",
+      "agent_task": "mod_msd_dynrt_pilot",
+      "config_overrides": {
+        "mock.valid_f1": 0.8030,
+        "mock.test_f1": 0.7920
+      }
+    }
+  ]
+}

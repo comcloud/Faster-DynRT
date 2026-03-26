@@ -7,6 +7,32 @@ import sys
 from pathlib import Path
 
 
+DEFAULT_CONTEXT_FILES = [
+    "model/DynRT.py",
+    "model/attention/BridgeInfoLayer.py",
+    "model/attention/CrossModalTransformerLayer.py",
+    "model/attention/MultimodalFusionLayer.py",
+    "model/attention/GuideAttentionLayer.py",
+    "model/attention/TraditionalAttentionLayer.py",
+]
+
+
+def parse_target_files(instruction_text: str) -> list[str]:
+    targets: list[str] = []
+    in_targets = False
+    for raw_line in instruction_text.splitlines():
+        line = raw_line.strip()
+        if line == "Target files:":
+            in_targets = True
+            continue
+        if in_targets and line.startswith("- "):
+            targets.append(line[2:].strip())
+            continue
+        if in_targets and line and not line.startswith("- "):
+            in_targets = False
+    return targets
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Agent adapter for experiment pipeline.")
     parser.add_argument("--workspace", required=True, help="Project workspace path")
@@ -25,6 +51,14 @@ def main() -> int:
         return 0
 
     if backend == "openai_api":
+        env = os.environ.copy()
+        if not env.get("AGENT_CONTEXT_FILES", "").strip():
+            targets = parse_target_files(instruction_text)
+            merged = []
+            for p in DEFAULT_CONTEXT_FILES + targets:
+                if p and p not in merged:
+                    merged.append(p)
+            env["AGENT_CONTEXT_FILES"] = ",".join(merged)
         cmd = [
             sys.executable,
             "automation/agent_openai_patch.py",
@@ -36,7 +70,7 @@ def main() -> int:
             task_name,
         ]
         print("[agent_adapter] run:", " ".join(shlex.quote(x) for x in cmd))
-        result = subprocess.run(cmd, cwd=workspace, check=False)
+        result = subprocess.run(cmd, cwd=workspace, env=env, check=False)
         return result.returncode
 
     if backend != "shell":

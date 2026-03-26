@@ -1,0 +1,11 @@
+{"event": "controller_start", "strategy": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/automation/background_controller.strategy.example.json", "run_root": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/msd_gpu_pilot_v2", "timestamp": "2026-03-26T15:54:58"}
+{"event": "attempt_start", "name": "baseline", "attempt": 1, "timestamp": "2026-03-26T15:54:58"}
+{"event": "controller_start", "strategy": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/automation/background_controller.strategy.example.json", "run_root": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/msd_gpu_pilot_v2", "timestamp": "2026-03-26T15:59:06"}
+{"event": "attempt_start", "name": "baseline", "attempt": 1, "timestamp": "2026-03-26T15:59:06"}
+{"event": "attempt_finish", "name": "baseline", "attempt": 1, "status": "finished", "metric_value": 0.6643401847049065, "timestamp": "2026-03-26T16:28:08"}
+{"event": "accepted", "name": "baseline", "attempt": 1, "metric_value": 0.6643401847049065, "timestamp": "2026-03-26T16:28:08"}
+{"event": "attempt_start", "name": "mod01_bridge_gated_residual", "attempt": 1, "timestamp": "2026-03-26T16:28:08"}
+{"event": "controller_start", "strategy": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/automation/background_controller.strategy.example.json", "run_root": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/msd_gpu_pilot_v2", "timestamp": "2026-03-26T16:47:17"}
+{"event": "attempt_start", "name": "baseline", "attempt": 1, "timestamp": "2026-03-26T16:47:17"}
+{"event": "controller_start", "strategy": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/automation/background_controller.strategy.example.json", "run_root": "/root/autodl-tmp/ray/projects/dynrt_bridge_main/auto_runs/msd_gpu_pilot_v2", "timestamp": "2026-03-26T16:52:18"}
+{"event": "attempt_start", "name": "baseline", "attempt": 1, "timestamp": "2026-03-26T16:52:18"}

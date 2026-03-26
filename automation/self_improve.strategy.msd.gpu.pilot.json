@@ -1,0 +1,86 @@
+{
+  "project_root": ".",
+  "base_plan": "automation/plan.msd.gpu.pilot.json",
+  "work_dir": "auto_runs/self_improve_msd_gpu_pilot",
+  "max_rounds": 4,
+  "min_improvement": 0.001,
+  "target_valid_f1": null,
+  "baseline_experiment": {
+    "name": "baseline",
+    "config_overrides": {
+      "opt.seed": 2,
+      "opt.total_epoch": 3,
+      "opt.dataloader.batch_size": 4,
+      "opt.checkpoint_step": 1,
+      "opt.optimizeropt.params.trar.lr": 1e-05,
+      "opt.modelopt.vit_pretrained": false
+    },
+    "env": {
+      "CUDA_VISIBLE_DEVICES": "0"
+    }
+  },
+  "model_candidates": [
+    {
+      "name": "mod01_bridge_gated_residual",
+      "agent_task": "mod_bridge_gated_residual",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 3,
+        "opt.dataloader.batch_size": 4,
+        "opt.checkpoint_step": 1,
+        "opt.optimizeropt.params.trar.lr": 1e-05,
+        "opt.modelopt.vit_pretrained": false
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod02_cross_modal_pre_norm",
+      "agent_task": "mod_cross_modal_pre_norm",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 3,
+        "opt.dataloader.batch_size": 4,
+        "opt.checkpoint_step": 1,
+        "opt.optimizeropt.params.trar.lr": 1e-05,
+        "opt.modelopt.vit_pretrained": false
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    },
+    {
+      "name": "mod03_multimodal_fusion_highway",
+      "agent_task": "mod_multimodal_fusion_highway",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 3,
+        "opt.dataloader.batch_size": 4,
+        "opt.checkpoint_step": 1,
+        "opt.optimizeropt.params.trar.lr": 1e-05,
+        "opt.modelopt.vit_pretrained": false
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    }
+  ],
+  "param_candidates": [
+    {
+      "name": "param_dropout_03",
+      "config_overrides": {
+        "opt.seed": 2,
+        "opt.total_epoch": 3,
+        "opt.dataloader.batch_size": 4,
+        "opt.checkpoint_step": 1,
+        "opt.optimizeropt.params.trar.lr": 1e-05,
+        "opt.modelopt.dropout": 0.3,
+        "opt.modelopt.vit_pretrained": false
+      },
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0"
+      }
+    }
+  ]
+}
